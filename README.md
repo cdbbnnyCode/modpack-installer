@@ -5,12 +5,12 @@ from CurseForge without the Twitch client. It generates isolated Minecraft
 environments separate from your main .minecraft directory to avoid modifying
 your default Minecraft installation.  
 *DISCLAIMER: This tool has not been thoroughly tested! If you find a bug, please
-help me out by posting an issue!*
+help me out by posting an [issue](https://github.com/cdbbnnyCode/modpack-installer/issues)!*
 
 ### Requirements  
-This program requires the Minecraft launcher, Python 3, NodeJS and Java (8 or
+This program requires the Minecraft launcher, Python 3, NodeJS and a JDK (8 or
 higher). The only dependency library is not automatically installed is Requests,
-which can be installed with Pip (or your favorite method of installing Python
+which can be installed with pip (or your favorite method of installing Python
 libraries):  
 ```
 pip3 install --user requests
@@ -42,10 +42,10 @@ The installer script goes through several steps to install the modpack:
 * Next, it creates a `.minecraft` folder for the modpack. It starts the launcher
   in order to create a `launcher_profiles.json` file, which is needed to install
   Forge. This step is skipped if a `.minecraft` folder already exists.
-* Next, it runs `forge_install.py` to install Forge. This script downloads the
-  requested version of the Forge installer and uses the `ForgeHack.java` program
+* Next, it runs [`forge_install.py`](/forge_install.py) to install Forge. This script downloads the
+  requested version of the Forge installer and uses the [`ForgeHack.java`](/ForgeHack.java) program
   to bypass the install GUI and install directly to the `.minecraft` folder.
-* Next, it uses the `mod_download.js` script to download the required mods into
+* Next, it uses the [`mod_download.js`](/mod_download.js) script to download the required mods into
   the `.modcache` folder. The downloader script also generates a list of the mod
   jar files that are used by the modpack. The installer script then uses this
   list to create symlinks to each mod. This reduces total disk usage when multiple
