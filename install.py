@@ -7,11 +7,14 @@
 # mods and overrides installed.
 
 import forge_install
+import mod_download
 import os
 import sys
 import json
 import subprocess
 import time
+import random
+import shutil
 from distutils.dir_util import copy_tree
 from zipfile import ZipFile
 
@@ -74,24 +77,41 @@ def main(zipfile):
         if not os.path.isdir('.modcache'):
             os.mkdir('.modcache')
 
-        if not os.path.isdir('node_modules'):
-            print("Installing NodeJS dependencies")
-            subprocess.run(['npm', 'install'])
-        subprocess.run(['node', 'mod_download.js', packdata_dir + '/manifest.json', '.modcache', packdata_dir + '/mods.json'])
+        # if not os.path.isdir('node_modules'):
+        #     print("Installing NodeJS dependencies")
+        #     subprocess.run(['npm', 'install'])
+        # subprocess.run(['node', 'mod_download.js', packdata_dir + '/manifest.json', '.modcache', packdata_dir + '/mods.json'])
+
+        mods = mod_download.main(packdata_dir + '/manifest.json', '.modcache')
 
         # Link mods
         print("Linking mods")
-        with open(packdata_dir + '/mods.json', 'r') as f:
-            mods = json.load(f)['mods']
+        if not os.path.isdir(mc_dir + '/resources'):
+            os.mkdir(mc_dir + '/resources')
 
-        for jar in mods:
-            os.symlink(os.path.abspath('.modcache/' + jar), mc_dir + '/mods/' + jar)
+        for mod in mods:
+            jar = mod[0]
+            type = mod[1]
+            if type == 'mc-mods':
+                os.symlink(os.path.abspath(jar), mc_dir + '/mods/' + os.path.basename(jar))
+            elif type == 'texture-packs':
+                print("Extracting texture pack %s" % jar)
+                # texpack_dir = '/tmp/%06d' % random.randint(0, 999999)
+                # os.mkdir(texpack_dir)
+                with ZipFile(jar, 'r') as zip:
+                    zip.extractall(mc_dir + '/resources')
+            else:
+                print("Illegal type %s" % type)
+                sys.exit(1)
 
     # Copy overrides
     print("Copying overrides")
     for dir in os.listdir(packdata_dir + '/overrides'):
         print(dir + "...")
-        copy_tree(packdata_dir + '/overrides/' + dir, mc_dir + '/' + dir)
+        if os.path.isdir(packdata_dir + '/overrides/' + dir):
+            copy_tree(packdata_dir + '/overrides/' + dir, mc_dir + '/' + dir)
+        else:
+            shutil.copyfile(packdata_dir + '/overrides/' + dir, mc_dir + '/' + dir)
     print("Done!")
     print()
     print()

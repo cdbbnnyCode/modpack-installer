@@ -21,3 +21,6 @@ packs/
 
 # Modpack zip files
 *.zip
+
+# Launcher files
+GPUCache/

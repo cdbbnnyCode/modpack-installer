@@ -1,5 +1,5 @@
 ## CurseForge Modpack Installer  
-###### V1.0-beta
+###### V1.1-beta
 This is a small tool for Linux users to be able to install Minecraft modpacks
 from CurseForge without the Twitch client. It generates isolated Minecraft
 environments separate from your main .minecraft directory to avoid modifying
@@ -8,7 +8,7 @@ your default Minecraft installation.
 help me out by posting an [issue](https://github.com/cdbbnnyCode/modpack-installer/issues)!*
 
 ### Requirements  
-This program requires the Minecraft launcher, Python 3, NodeJS and a JDK (8 or
+This program requires the Minecraft launcher, Python 3, and a JDK (8 or
 higher). The only dependency library is not automatically installed is Requests,
 which can be installed with pip (or your favorite method of installing Python
 libraries):  
@@ -45,17 +45,17 @@ The installer script goes through several steps to install the modpack:
 * Next, it runs [`forge_install.py`](/forge_install.py) to install Forge. This script downloads the
   requested version of the Forge installer and uses the [`ForgeHack.java`](/ForgeHack.java) program
   to bypass the install GUI and install directly to the `.minecraft` folder.
-* Next, it uses the [`mod_download.js`](/mod_download.js) script to download the required mods into
+Next, it uses the [`mod_download.py`](/mod_download.py) script to download the required mods into
   the `.modcache` folder. The downloader script also generates a list of the mod
   jar files that are used by the modpack. The installer script then uses this
-  list to create symlinks to each mod. This reduces total disk usage when multiple
+  list to create symbolic links to each mod. This reduces total disk usage when multiple
   modpacks use the same mod.
 * Finally, the installer copies all of the folders in `overrides` from the unzipped
   modpack folder into the `.minecraft` folder.
 
 ### Limitations
-* This tool has so far only been tested on one modpack (Sky Factory 4), and may
-  not work with other modpacks.
+* This tool has so far only been tested on two modpacks (Sky Factory 4 and RLCraft),
+  and may not work with other modpacks.
 * This tool only works with Minecraft Forge. Other mod loaders will probably never
   be supported.
 * This tool always installs all mods, regardless of whether they are marked as

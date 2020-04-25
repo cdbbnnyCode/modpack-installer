@@ -117,7 +117,13 @@ async.eachLimit(mods, 4, function(mod, callback)
     }
     if (!found)
     {
-      console.log("---- " + mod.projectID + " not found");
+      console.log("---- " + mod.fileID + " (project=" + mod.projectID + ", name=" + files[0].mod_key + ") not found");
+      let available_ids = [];
+      for (let f of files)
+      {
+        available_ids.push(f.id);
+      }
+      console.log(available_ids);
       callback(); // Couldn't find file
     }
   });
