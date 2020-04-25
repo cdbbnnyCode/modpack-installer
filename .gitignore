@@ -1,0 +1,23 @@
+# Python
+__pycache__/
+
+# Java
+*.class
+
+# NodeJS
+node_modules/
+
+# Atom
+.ropeproject/
+
+# Misc. log files
+*.log
+
+# Modpack Installer files
+.modcache/
+.packs/
+global/
+packs/
+
+# Modpack zip files
+*.zip
