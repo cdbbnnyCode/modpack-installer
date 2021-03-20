@@ -138,6 +138,6 @@ def main(zipfile, manual_forge=False):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('zipfile')
-    parser.add_argument('--no-forge', dest='forge_disable', action='store_true')
+    parser.add_argument('--manual-forge', dest='forge_disable', action='store_true')
     args = parser.parse_args(sys.argv[1:])
     main(args.zipfile, args.forge_disable)
