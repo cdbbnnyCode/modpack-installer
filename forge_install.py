@@ -14,7 +14,7 @@ def download(url, dest):
         f.write(r.content)
     return r.status_code
 
-def main(manifest_json, mc_dir, profile_name):
+def main(manifest_json, mc_dir, profile_name, manual=False):
     with open(manifest_json, 'r') as f:
         mandata = json.load(f)
 
@@ -38,9 +38,12 @@ def main(manifest_json, mc_dir, profile_name):
             sys.exit(2)
 
     # Run the Forge auto-install hack
-    if not os.path.exists('ForgeHack.class'):
-        subprocess.run(['javac', 'ForgeHack.java'])
-    subprocess.run(['java', 'ForgeHack', outpath, mc_dir])
+    if manual:
+        subprocess.run(['java', '-jar', outpath])
+    else:
+        if not os.path.exists('ForgeHack.class'):
+            subprocess.run(['javac', 'ForgeHack.java'])
+        subprocess.run(['java', 'ForgeHack', outpath, mc_dir])
 
     # Rename the forge profile
     with open(mc_dir + '/launcher_profiles.json', 'r') as f:

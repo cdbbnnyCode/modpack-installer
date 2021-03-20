@@ -21,6 +21,7 @@ packs/
 
 # Modpack zip files
 *.zip
+*.jar
 
 # Launcher files
 GPUCache/

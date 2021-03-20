@@ -15,13 +15,14 @@ import subprocess
 import time
 import random
 import shutil
+import argparse
 from distutils.dir_util import copy_tree
 from zipfile import ZipFile
 
 def start_launcher(mc_dir):
     subprocess.run(['minecraft-launcher', '--workDir', mc_dir])
 
-def main(zipfile):
+def main(zipfile, manual_forge=False):
     # Extract pack
     packname = os.path.splitext(zipfile)[0]
     packname = os.path.basename(packname)
@@ -68,11 +69,12 @@ def main(zipfile):
 
     # Install Forge
     print("Installing Forge")
-    forge_install.main(packdata_dir + '/manifest.json', mc_dir, packname)
+    forge_install.main(packdata_dir + '/manifest.json', mc_dir, packname, manual_forge)
 
     # Download mods
-    if not os.path.isdir(mc_dir + '/mods'):
-        os.mkdir(mc_dir + '/mods')
+    if not os.path.exists(mc_dir + '/.mod_success'):
+        if not os.path.isdir(mc_dir + '/mods'):
+            os.mkdir(mc_dir + '/mods')
         print("Downloading mods")
         if not os.path.isdir('.modcache'):
             os.mkdir('.modcache')
@@ -93,16 +95,29 @@ def main(zipfile):
             jar = mod[0]
             type = mod[1]
             if type == 'mc-mods':
-                os.symlink(os.path.abspath(jar), mc_dir + '/mods/' + os.path.basename(jar))
+                modfile = mc_dir + '/mods/' + os.path.basename(jar)
+                if not os.path.exists(modfile):
+                    os.symlink(os.path.abspath(jar), modfile)
             elif type == 'texture-packs':
                 print("Extracting texture pack %s" % jar)
-                # texpack_dir = '/tmp/%06d' % random.randint(0, 999999)
-                # os.mkdir(texpack_dir)
+                texpack_dir = '/tmp/%06d' % random.randint(0, 999999)
+                os.mkdir(texpack_dir)
                 with ZipFile(jar, 'r') as zip:
-                    zip.extractall(mc_dir + '/resources')
+                    zip.extractall(texpack_dir)
+                for dir in os.listdir(texpack_dir + '/assets'):
+                    f = texpack_dir + '/assets/' + dir
+                    if os.path.isdir(f):
+                        copy_tree(f, mc_dir + '/resources/' + dir)
+                    else:
+                        shutil.copyfile(f, mc_dir + '/resources/' + dir)
+                shutil.rmtree(texpack_dir)
             else:
                 print("Illegal type %s" % type)
                 sys.exit(1)
+
+    # Create success marker
+    with open(mc_dir + '/.mod_success', 'wb') as f:
+        pass
 
     # Copy overrides
     print("Copying overrides")
@@ -121,4 +136,8 @@ def main(zipfile):
     print("  minecraft-launcher --workDir .")
 
 if __name__ == "__main__":
-    main(sys.argv[1])
+    parser = argparse.ArgumentParser()
+    parser.add_argument('zipfile')
+    parser.add_argument('--no-forge', dest='forge_disable', action='store_true')
+    args = parser.parse_args(sys.argv[1:])
+    main(args.zipfile, args.forge_disable)
