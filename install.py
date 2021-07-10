@@ -7,6 +7,7 @@
 # mods and overrides installed.
 
 import forge_install
+import fabric_install
 import mod_download
 import os
 import sys
@@ -20,9 +21,9 @@ from distutils.dir_util import copy_tree
 from zipfile import ZipFile
 
 def start_launcher(mc_dir):
-    subprocess.run(['minecraft-launcher', '--workDir', mc_dir])
+    subprocess.run(['minecraft-launcher', '--workDir', os.path.abspath(mc_dir)])
 
-def main(zipfile, manual_forge=False):
+def main(zipfile, manual=False):
     # Extract pack
     packname = os.path.splitext(zipfile)[0]
     packname = os.path.basename(packname)
@@ -62,14 +63,64 @@ def main(zipfile, manual_forge=False):
         os.symlink(os.path.abspath('global/shaderpacks'), mc_dir + '/shaderpacks', True)
 
         print("Creating launcher profiles")
-        print("This requires starting the launcher")
-        print("Please log in and then close the launcher.")
-        time.sleep(2)
-        start_launcher(mc_dir)
+        launcher_profiles = {
+            "profiles": {},
+            "settings": {
+                "crashAssistance": True,
+                "enableAdvanced": False,
+                "enableAnalytics": False,
+                "enableHistorical": False,
+                "enableReleases": True,
+                "enableSnapshots": False,
+                "keepLauncherOpen": True,
+                "profileSorting": "ByLastPlayed",
+                "showGameLog": False,
+                "showMenu": False,
+                "soundOn": False
+            }
+        }
+        with open(mc_dir + '/launcher_profiles.json', 'w') as f:
+            json.dump(launcher_profiles, f)
 
     # Install Forge
-    print("Installing Forge")
-    forge_install.main(packdata_dir + '/manifest.json', mc_dir, packname, manual_forge)
+    print("Installing modloader")
+    try:
+        with open(packdata_dir + '/manifest.json', 'r') as mf:
+            manifest = json.load(mf)
+    except (json.JsonDecodeError, OSError) as e:
+        print("Manifest file not found or was corrupted.")
+        print(e)
+        return
+
+    # supported modloaders and their run-functions
+    # The run function will take the following arguments:
+    # * manifest JSON
+    # * minecraft version
+    # * modloader version
+    # * modpack name
+    # * minecraft directory
+    # * manual flag: run automatically or show GUI
+    modloaders = {
+        'forge': forge_install.main,
+        'fabric': fabric_install.main
+    }
+
+    # I have not yet seen a modpack that has multiple modloaders
+    if len(manifest['minecraft']['modLoaders']) != 1:
+        print("This modpack (%s) has %d modloaders, instead of the normal 1."
+                % (packname, len(manifest['minecraft']['modLoaders'])))
+        print("This is currently unsupported, so expect the installation to fail in some way.")
+        print("Please report which modpack caused this to the maintainer at:")
+        print("  https://github.com/cdbbnnyCode/modpack-installer/issues")
+    modloader, mlver = manifest['minecraft']['modLoaders'][0]["id"].split('-')
+    mcver = manifest['minecraft']['version']
+
+    if not modloader in modloaders:
+        print("This modloader (%s) is not supported." % modloader)
+        print("Currently, the only supported modloaders are %s" % modloaders)
+        return
+
+    modloaders[modloader](manifest, mcver, mlver, packname, mc_dir, manual)
 
     # Download mods
     if not os.path.exists(mc_dir + '/.mod_success'):
@@ -133,11 +184,11 @@ def main(zipfile, manual_forge=False):
     print()
     print("To launch your new modpack, use:")
     print("  cd %s" % (mc_dir[:-11]))
-    print("  minecraft-launcher --workDir .")
+    print("  minecraft-launcher --workDir $(realpath .minecraft)")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('zipfile')
-    parser.add_argument('--manual-forge', dest='forge_disable', action='store_true')
+    parser.add_argument('--manual', dest='forge_disable', action='store_true')
     args = parser.parse_args(sys.argv[1:])
     main(args.zipfile, args.forge_disable)

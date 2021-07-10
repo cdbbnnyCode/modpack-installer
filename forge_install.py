@@ -4,30 +4,14 @@ import os
 import json
 import requests
 import subprocess
+from util import *
 
 # https://files.minecraftforge.net/maven/net/minecraftforge/forge/1.12.2-14.23.5.2847/forge-1.12.2-14.23.5.2847-universal.jar
-def download(url, dest):
-    print("Downloading %s" % url)
-    r = requests.get(url)
-    print("Status: %s" % r.status_code)
-    with open(dest, 'wb') as f:
-        f.write(r.content)
-    return r.status_code
 
-def main(manifest_json, mc_dir, profile_name, manual=False):
-    with open(manifest_json, 'r') as f:
-        mandata = json.load(f)
 
-    mcver = mandata['minecraft']['version']
-    forgever = None
-    for modloader in mandata['minecraft']['modLoaders']:
-        if 'forge' in modloader['id']:
-            forgever = modloader['id'][6:]
-    if forgever is None:
-        print("This loader currently only supports Minecraft Forge.")
-        sys.exit(1)
+def main(manifest, mcver, mlver, packname, mc_dir, manual):
 
-    forge_fullver = mcver + '-' + forgever
+    forge_fullver = mcver + '-' + mlver
     url = 'https://files.minecraftforge.net/maven/net/minecraftforge/forge/%s/forge-%s-installer.jar' \
             % (forge_fullver, forge_fullver)
     outpath = '/tmp/forge-%s-installer.jar' % forge_fullver
@@ -49,17 +33,11 @@ def main(manifest_json, mc_dir, profile_name, manual=False):
     with open(mc_dir + '/launcher_profiles.json', 'r') as f:
         launcher_profiles = json.load(f)
 
-    if 'forge' not in launcher_profiles['profiles'].keys():
+    if 'forge' not in launcher_profiles['profiles']:
         print("ERROR: Forge did not install correctly!")
         sys.exit(3)
 
-    forge_profile = launcher_profiles['profiles']['forge'].copy()
-    del launcher_profiles['profiles']['forge']
-    launcher_profiles['profiles'][profile_name] = forge_profile
-    launcher_profiles['profiles'][profile_name]['name'] = profile_name
+    rename_profile(launcher_profiles, 'forge', packname)
 
     with open(mc_dir + '/launcher_profiles.json', 'w') as f:
         json.dump(launcher_profiles, f)
-
-if __name__ == "__main__":
-    main(sys.argv[1], sys.argv[2], sys.argv[3])
