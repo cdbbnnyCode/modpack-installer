@@ -56,11 +56,13 @@ def main(zipfile, manual=False):
             os.mkdir('global/resourcepacks')
             os.mkdir('global/saves')
             os.mkdir('global/shaderpacks')
+            os.mkdir('global/assets')
 
         os.symlink(os.path.abspath('global/libraries'), mc_dir + '/libraries', True)
         os.symlink(os.path.abspath('global/resourcepacks'), mc_dir + '/resourcepacks', True)
         os.symlink(os.path.abspath('global/saves'), mc_dir + '/saves', True)
         os.symlink(os.path.abspath('global/shaderpacks'), mc_dir + '/shaderpacks', True)
+        os.symlink(os.path.abspath('global/assets'), mc_dir + '/assets', True)
 
         print("Creating launcher profiles")
         launcher_profiles = {
