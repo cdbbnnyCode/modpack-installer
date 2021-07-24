@@ -8,7 +8,7 @@ This project is currently in beta and may be unstable. If you find a bug, please
 help me out by posting an [issue](https://github.com/cdbbnnyCode/modpack-installer/issues)!
 
 **V2.1 update info**: After updating to version 2.1, please run the `clean.py` script
-to upgrade all of your existing modpacks. See 
+to upgrade all of your existing modpacks.
 
 ### Features
 * Simple command-line interface
