@@ -17,7 +17,7 @@ def download(url, dest):
     print("Downloading %s" % url)
     try:
         r = requests.get(url, headers = HEADER)
-    except (requests.exceptions) as e:
+    except (requests.RequestException) as e:
         return 404 # it could return a HTML error like 400 or 404 here as well
     print("Write file...")
     try:
