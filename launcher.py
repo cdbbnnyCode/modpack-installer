@@ -9,44 +9,50 @@ import magic # must be installed maybe: pip3 install magic-python
 import json
 import time
 import shutil
+import argparse
+
+import install as installScript
 
 # copied from util, made it a bit safer, could be copied to util.py
 def download(url, dest):
     print("Downloading %s" % url)
     try:
         r = requests.get(url, headers = HEADER)
-    except Exception as e:
-        return e # it could throw a HTML error like 400 here as well
-
+    except (requests.exceptions.ConnectionError, requests.exceptions.HTTPError, requests.exceptions.Timeout, requests.exceptions.TooManyRedirects) as e:
+        return 404 # it could return a HTML error like 400 or 404 here as well
     print("Write file...")
     try:
-        if not os.path.exists(os.path.dirname(dest)):
-            os.mkdir(os.path.dirname(dest))
         with open(dest, 'wb') as f:
             f.write(r.content)
-            f.close()
-    except Exception as e:
+    except IOError as e:
         return f"Could not write to file '{dest}': {e}"
     
     return r.status_code
 
 # create clear method + fallback if commands cls and clear doesn't exist on the machine
-clearConsole = lambda: os.system('cls' if os.name in ('nt', 'dos') else 'clear')
+def clearConsole():
+    os.system('cls' if os.name in ('nt', 'dos') else 'clear')
+
 try:
     clearConsole()
-except:
-    clearConsole = lambda: print("\n" * 100)
+except OSError:
+    def clearConsole(): 
+        print("\n" * 100)
 
 # handels colors and variable exchangees
 # TODO: Maybe add support for non Ansi consoles (because the color codes are shwon, if the console doesn't support those)
 class Format:
     # colors
+    @staticmethod
     def format(text, *colors):
         returnText = ""
-        for color in colors:
-            returnText += color
-        
-        returnText += text + Format.RESET
+        if not NOCOLORS:
+            for color in colors:
+                returnText += color
+            
+            returnText += text + Format.RESET
+        else:
+            returnText = text
 
         return returnText
 
@@ -62,32 +68,15 @@ class Format:
     BOLD = '\033[1m'
     UNDERLINE = '\033[4m'
 
-    # changes variables in string trough replacements, ex:
-    # Format.exchange("Hello &WORLD&", WORLD = "world!")
-    # returns:
-    # "Hello world!"
-    def exchange(string, **replacements):
-        splitString = string.split(VARSPARSER)
-        formattedString = splitString
-        i = 0
-        for split in splitString:
-            replace = ""
-            if replacements.keys().__contains__(split):
-                replace = replacements[split]
-                formattedString[i] = replace
-            i += 1
-        return "".join(formattedString)
-
     # generates an underlined string
+    @staticmethod
     def underlinedString(string):
         return string + "\n" + Format.underline(string)
     
     # maybe I need those two functions separated later
+    @staticmethod
     def underline(string):
-        underline = ""
-        for s in string:
-            underline += "-"
-        return underline
+        return "-" * len(string)
 
 # handles those beautiful menus
 class MenuHelper:
@@ -100,23 +89,27 @@ class MenuHelper:
         self.menuPoints = []
     
     # adds an Item to the menu
-    def addItem(self,text, function = quit, args = ""):
+    def addItem(self,text, function = quit, args = {}):
+        argsItem = {}
+        for key in args:
+            if type(args[key]).__name__ == "str":
+                argsItem[key] = args[key].format(CAP=self.cap, NAME=text)
+            else:
+                argsItem[key] = args[key]
         self.menuPoints.append({
-            'text': str(len(self.menuPoints) + 1) + ") " + Format.exchange(text, CAP=self.cap, NAME=text), 
+            'text': str(len(self.menuPoints) + 1) + ") " + text.format(CAP=self.cap, NAME=text), 
             'func':function, 
-            'args': Format.exchange(args, CAP=self.cap, NAME=text)
+            'args': argsItem
             })
     
     # adds an list to the menu
-    def addItems(self, list, function, args = ""):
+    def addItems(self, list, function, args = {}):
         for item in list:
-            self.addItem(item, function, Format.exchange(args, CAP=self.cap, NAME=item))
+            self.addItem(item, function, args)
         
     # shows the menu
     def show(self, error = ""):
         clearConsole()
-        if len(self.menuPoints) == 1:
-            self.do(0)
 
         # added this so there is a way to show errors in menus
         if error != "":
@@ -136,7 +129,7 @@ class MenuHelper:
             n = 1
         try:
             n = int(n)
-        except:
+        except ValueError:
             self.show("Error! Please input only Numbers!")
         
         self.do(n - 1)
@@ -148,42 +141,34 @@ class MenuHelper:
 
         function = self.menuPoints[n]['func']
         argument = self.menuPoints[n]['args']
-        functionExecutor(function, argument)
-        
-# this function is used to launch all functions. It gives better accurcy of describing the failure, if an function fails (name + error code).
-# If this function would be build in the do-function, it would only display the last function called by an menu and not the recrusive calls of functions
-def functionExecutor(function, argument):
-    try:
         function(argument)
-        print(str(function).split()[1] + '(' + str(argument) + ')')
-    except Exception as e:
-        quit(Format.format(f"Error in Code: Method \"{str(function).split()[1] + '(' + str(argument) + ')'}\" exited: {e}", Format.RED))
 
 ################################################################################################################################################
 # Here are the menu functions defined (such as quitting and launching instances)
 ################################################################################################################################################
-def quit(message = "Bye!", clearCons = True):
-    if clearCons:
+def quit(args):
+    if not "message" in args:
+        args["message"] = "Bye!"
+    if (not "clearConsole" in args) or ("clearConsole" in args and args["clearConsole"] == True):
         clearConsole()
-    cleanUp(False, True)
-    print(message)
+    cleanUp({"returnToMenu": False, "fullCleanUp": True})
+    print(args["message"])
     os._exit(1)
 
 def launch(args):
-    splitArgs = args.split(ARGSSEPARATOR)
-    folder = splitArgs[1]
+    folder = args['instance']
     if not os.path.exists(PACKSPATH + folder) or not os.path.exists(PACKSPATH + folder + "/.minecraft"):
-        quit(Format.format(f"Error! The selected instance under '{folder}' doesn't exist or is broken. Try reset the instance!", Format.RED))
+        quit({"message": Format.format(f"Error! The selected instance under '{folder}' doesn't exist or is broken. Try reset the instance!", Format.RED)})
     if not os.path.exists(PACKSPATH + folder + "/.minecraft/mods"):
         print(Format.format("Warning: Your selected instance does not contain a mods-folder! If this is not desired, then try to reset this instance!", Format.ORANGE))
-    cmd = Format.exchange(LAUNCHERCOMMAND.replace(" ", "!"), PathToInstance = PACKSPATH + folder)
+    cmd = LAUNCHERCOMMAND.replace(" ", "!").format(PathToInstance = PACKSPATH + folder)
     try:
         subprocess.Popen(cmd.replace('"', "").split("!"), close_fds=True, start_new_session=True, stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT)
         print(Format.format(f"Start Launcher with command \'{cmd.replace('!', ' ')}\'. Press [return] to return to selection.", Format.CYAN))
         input()
-        functionExecutor(main, args[0])
-    except Exception as e:
-        quit(Format.format(f"Error! Your minecraft client doesn't work (correctly). Try to start it manualy: \'{cmd.replace('!', ' ')}\'", Format.RED))
+        main({"path" : args['path']})
+    except OSError as e:
+        quit({"message": Format.format(f"Error! Your minecraft client doesn't work (correctly). Try to start it manualy: \'{cmd.replace('!', ' ')}\'", Format.RED)})
 
 # The method gets launched with only download or local argument. 
 # if the argument download is found, then it asks the user for name/id. Then it tries to find the pack with the courseforge API (in case of name it gets first 25 results and shows them in a list) The searchquerry gets downloaded to DOWNLOADPATH/tmp
@@ -194,8 +179,10 @@ def launch(args):
 # Now it executes the install.py script.
 # If in installMenu "local install" is selected, then it calls the method install as well but only with the "local" argument. It asks for the path and calls itself with the additional argument "zip" and the path to the zip-file. This calls the install.py script (as well).
 def install(args):
-    splitArgs = args.split(ARGSSEPARATOR)
-    if splitArgs.__contains__("download") and not splitArgs.__contains__("selectedPack"):
+    if not "source" in args:
+        quit({"message": Format.format(f"Error! Arguments for install-function are incorrect: {args['path']}", Format.RED)})
+
+    if args["source"] == "web" and not "selectedPackName" in args and not "selectedPack" in args:
         cap = "Download a new instance from link"
 
         clearConsole()
@@ -208,17 +195,21 @@ def install(args):
             search = input()
             if search == "q":
                 main()
-                quit(Format.format("Error! You shouldn't be here anymore! Check the main function! (Calling from install())", Format.BLUE))
+                quit({"message": Format.format("Error! You shouldn't be here anymore! Check the main function! (Calling from install())", Format.BLUE)})
             try:
                 id = int(search)
-                url = f"{BASEURL}{id}"
-            except:
+                install({**args, "selectedPack": f"{id}"})
+                break
+            except ValueError:
                 name = search.replace(" ", "%20")
                 url = f"{BASEURL}search?categoryId=0&gameId=432&gameVersion=&index=0&pageSize=15&searchFilter={name}&sectionId=4471&sort=0"
             
+            if not os.path.exists(os.path.dirname(DOWNLOADPATH + "tmp")):
+                os.mkdir(os.path.dirname(DOWNLOADPATH + "tmp"))
+            
             resp = download(url, DOWNLOADPATH + "tmp")
             if resp != 200:
-                print(Format.format(f"Error! Can't find a pack with thses credentials: {search}", Format.RED))
+                print(Format.format(f"Error! Can't find a pack with these credentials: {search}", Format.RED))
                 if type(resp).__name__ == "int":
                     print(Format.format("HTML Error Code: " + str(resp), Format.ORANGE))
                 else:
@@ -228,85 +219,108 @@ def install(args):
 
         with open(DOWNLOADPATH + "tmp", "rt") as jsonFile:
             data = json.load(jsonFile)
-            if type(data).__name__ == "dict":
-                data = [data]
-                jsonFile.close()
-                with open(DOWNLOADPATH + "tmp", "wt") as file:
-                    file.write(json.dumps(data))
-                    file.close()
-            elif type(data).__name__ == "list":
-                pass
-            else:
-                quit(Format.format(f"Error! The script can't read curseforges API. Please try {url} an verify, that the result is a json-type file (and not '{type(data).__name__})'", Format.RED))
-
+        
+        if not type(data).__name__ == "list":
+            quit({"message": Format.format(f"Error! The script can't read curseforges API. Please try {url} an verify, that the result is a json-type file (and not '{type(data).__name__})'", Format.RED)})
+                
         searchRes = {}
         for dataPart in data:
             searchRes.update({dataPart["name"]: dataPart["id"]})
         
         searchMenu = MenuHelper(f"Search Result for '{search}'")
-        searchMenu.addItems(searchRes, install, argsParser(splitArgs[0], addArgs = [args, "selectedPack", "&NAME&"]))
-        searchMenu.addItem("quit", cleanUp, "")
+        searchMenu.addItems(searchRes, install, {**args, "selectedPackName": "{NAME}"})
+        searchMenu.addItem("quit", cleanUp)
         searchMenu.show()
     
-    elif splitArgs.__contains__("download") and splitArgs.__contains__("selectedPack") and not splitArgs.__contains__("selectedVersion"):
-        clearConsole()
-        modpackName = splitArgs[splitArgs.index("selectedPack") + 1]
-        
-        with open(DOWNLOADPATH + "tmp") as jsonFile:
+    elif args["source"] == "web" and "selectedPackName" in args and not "selectedPack" in args and not "selectedVersionName" in args:
+        with open(DOWNLOADPATH + "tmp", "rt") as jsonFile:
             data = json.load(jsonFile)
-            jsonFile.close()
+
         searchRes = {}
         for dataPart in data:
-            searchRes.update({dataPart["name"]: (dataPart["id"], {})})
-            for dataPartVersions in reversed(dataPart["latestFiles"]):
-                searchRes[dataPart["name"]][1].update({dataPartVersions["displayName"]: dataPartVersions["downloadUrl"]})
-        
-        modpackId = searchRes[modpackName][0]
+            searchRes.update({dataPart["name"]: dataPart["id"]})
+        install({**args, "selectedPack": searchRes[args["selectedPackName"]]})
 
-        print(f"Getting Modpack {modpackName} ({modpackId})...")
-        url = f"{BASEURL}{modpackId}"
+    elif args["source"] == "web" and "selectedPack" in args and not "selectedVersionName" in args:
+        clearConsole()
+        modpackId = args["selectedPack"]
+        
+        if not os.path.exists(os.path.dirname(DOWNLOADPATH + "tmp")):
+                os.mkdir(os.path.dirname(DOWNLOADPATH + "tmp"))
+
+        resp = download(BASEURL + str(modpackId), DOWNLOADPATH + "tmp")
+        if resp != 200:
+            print(Format.format(f"Error! Can't find a pack with this ID: {modpackId}", Format.RED))
+            if type(resp).__name__ == "int":
+                print(Format.format("HTML Error Code: " + str(resp), Format.ORANGE))
+            else:
+                print(Format.format("Error Code: " + str(resp), Format.ORANGE))
+            print("Press [return] to go back to search!")
+            input()
+            install({"path": args["path"], "source": "web"})        
+
+        with open(DOWNLOADPATH + "tmp") as jsonFile:
+            data = json.load(jsonFile)
+        
+        packInfoSearch = {}
+        packInfoSearch["modpackName"] = data["name"]
+        packInfoSearch["modpackId"] = data["id"]
+        packInfoSearch["latestFiles"] = {}
+        for latestFile in reversed(data["latestFiles"]):
+            index = 0
+            modloader = "Forge"
+            for i in range(len(latestFile["sortableGameVersion"])): # important, because curseforge mixes versions
+                if latestFile["sortableGameVersion"][i]["gameVersionName"].find(".") > -1:
+                    index = i
+                elif latestFile["sortableGameVersion"][i]["gameVersionName"].find("Fabric") > -1:
+                    modloader = "Fabric"
+            packInfoSearch["latestFiles"][latestFile["displayName"]] = {
+                "versionId": latestFile["id"], 
+                "downloadUrl": latestFile["downloadUrl"], 
+                "minecraftVersionName": latestFile["sortableGameVersion"][index]["gameVersionName"],
+                "modloader": modloader}
+        
+        modpackName = packInfoSearch["modpackName"]
 
         versionMenu = MenuHelper(f"Select an Version for '{modpackName}'")
-        versionMenu.addItems(searchRes[modpackName][1], install, argsParser(splitArgs[0], addArgs = [args, "selectedVersion", "&NAME&"]))
-        versionMenu.addItem("quit", cleanUp, "")
+        versionMenu.addItems(packInfoSearch["latestFiles"], install, {**args, "selectedVersionName": "{NAME}", "packInfoSearch": packInfoSearch})
+        versionMenu.addItem("quit", cleanUp)
         versionMenu.show()
 
-    elif splitArgs.__contains__("download") and splitArgs.__contains__("selectedPack") and splitArgs.__contains__("selectedVersion"):
-        modpackName = splitArgs[splitArgs.index("selectedPack") + 1]
-        version = splitArgs[splitArgs.index("selectedVersion") + 1]
-
-        with open(DOWNLOADPATH + "tmp") as jsonFile:
-            data = json.load(jsonFile)
-            jsonFile.close()
-        searchRes = {}
-        for dataPart in data:
-            searchRes.update({dataPart["name"]: (dataPart["id"], {})})
-            for dataPartVersions in reversed(dataPart["latestFiles"]):
-                searchRes[dataPart["name"]][1].update({dataPartVersions["displayName"]: dataPartVersions["downloadUrl"]})
-        url = searchRes[modpackName][1][version]
-
-        modpackId = searchRes[modpackName][0]
+    elif args["source"] == "web" and "selectedPack" in args and "selectedVersionName" in args:
+        modpackName = args["selectedPack"]
+        version = args["selectedVersionName"]
+        packInfoSearch = args["packInfoSearch"]
+        modpackId = packInfoSearch["modpackId"]
+        
+        packInfoSearch["selectedVersion"] = packInfoSearch["latestFiles"][args["selectedVersionName"]]
+        packInfoSearch["selectedVersion"]["versionName"] = args["selectedVersionName"]
         
         zipFile = DOWNLOADPATH + \
-            Format.exchange(NEWINSTANCENAME, 
+            NEWINSTANCENAME.format(
                 ModpackName = modpackName, 
                 ModpackId = modpackId, 
-                DisplayModpackVersion = version, 
+                ModpackVersionName = packInfoSearch["selectedVersion"]["versionName"], 
+                MinecraftVersionName = packInfoSearch["selectedVersion"]["minecraftVersionName"],
+                ModpackVersionId = packInfoSearch["selectedVersion"]["versionId"],
+                Modloader = packInfoSearch["selectedVersion"]["modloader"],
                 NowTime = time.strftime("%H%M%S", time.localtime()), 
                 NowDate = time.strftime("%d%m%y", time.localtime()), 
                 NowDateUS = time.strftime("%m%d%y", time.localtime())
-            ) + ".zip"
+            ).replace(".zip","") + ".zip"
+        if not os.path.exists(os.path.dirname(zipFile)):
+            os.mkdir(os.path.dirname(zipFile))
+        url = packInfoSearch["selectedVersion"]["downloadUrl"]
         resp = download(url, zipFile)
 
         if not os.path.exists(DOWNLOADPATH + ".packinfo"):
             open(DOWNLOADPATH + ".packinfo", "xt").close()
         with open(DOWNLOADPATH + ".packinfo", "wt") as packInfoFile:
-            packInfoFile.writelines(json.dumps({"modpackId":modpackId, "modpackName": modpackName, "version": version, "downloadUrl": url}))
-            packInfoFile.close()
+            packInfoFile.writelines(json.dumps(packInfoSearch))
 
-        functionExecutor(install, argsParser(splitArgs[0], addArgs = ["local", "zip", zipFile]))
+        install({"path": args["path"], "source": "local", "zip": zipFile})
     
-    elif splitArgs.__contains__("local") and not splitArgs.__contains__("zip"):
+    elif args["source"] == "local" and not "zip" in args:
         cap = "Install a new instance from disk"
 
         clearConsole()
@@ -317,7 +331,6 @@ def install(args):
             path = input()
             if path == "q":
                 main()
-                quit(Format.format("Error! You shouldn't be here anymore! Check the main function! (Calling from install())", Format.BLUE))
             
             print("Vaildating...")
             if not os.path.exists(path):
@@ -332,104 +345,133 @@ def install(args):
             break
         
         print("Ok")
-        functionExecutor(install, argsParser(splitArgs[0], addArgs = ["local", "zip", path]))
+        install(args["path"].update({"source": "local", "zip": path}))
 
-    elif splitArgs.__contains__("local") and splitArgs.__contains__("zip"):
+    elif args["source"] == "local" and "zip" in args:
         
-        zipFile = splitArgs[splitArgs.index("zip") + 1]
-        cmd = Format.exchange(INSTALLERCOMMAND, ZipFilePath = zipFile)
+        zipFile = args["zip"]
+
+        with open(DOWNLOADPATH + ".packinfo") as packInfoFile:
+            packInfo = json.load(packInfoFile)
+        
+        minecraftVersionName = packInfo["selectedVersion"]["minecraftVersionName"]
+        modloader = packInfo["selectedVersion"]["modloader"]
+
+        versionNumberString = ""
+        for i in range(0, 3): # a mc version consits out of 3 numbers
+            if len(minecraftVersionName.split(".")) > i: # I don't really know, how curseforge handels 1.8 (1.8 or 1.8.0). Therefore I am going safe and check, if it has that much numbers. If not, just place "000"
+                versionNumberString += minecraftVersionName.split(".")[i].zfill(3)
+            else:
+                versionNumberString += "000"
+        versionNumber = int(versionNumberString)
+        
+        MANUALFROMVERSIONString = ""
+        for i in range(0, 3): # and the constant
+            if len(MANUALFROMVERSION[modloader].split(".")) > i: # again to be safe, if user only uses "1.8" instead of "1.8.0"
+                MANUALFROMVERSIONString += MANUALFROMVERSION[modloader].split(".")[i].zfill(3)
+            else:
+                MANUALFROMVERSIONString += "000"
+        MANUALFROMVERSIONNumber = int(MANUALFROMVERSIONString)
+
+        if versionNumber <= MANUALFROMVERSIONNumber:
+            manual = False
+        else:
+            manual = True
         
         clearConsole()
-        print(f"Opening Installer with command '{cmd}'...")
+        print(f"Opening Installer: Zipfile = {zipFile}, manual = {manual}")
         try:
             os.chdir(os.path.dirname(__file__))
-            os.system(cmd)
+            installScript.main(zipFile, manual)
             print(Format.format("Finished! Press [return] to return to menu!", Format.GREEN))
             input()
             os.replace(DOWNLOADPATH + ".packinfo", PACKSPATH + zipFile[:-4].split("/")[-1] + "/.packinfo")
             cleanUp()
-        except Exception as e:
-            print(e)
-            cleanUp(False)
-        quit(Format.format(f"Error in installer! Try running '{cmd}' in your console and check the output!", Format.RED), False)
-
+        except Exception as e: # I think I should leave it here
+            cleanUp({"returnToMenu": False})
+            cmd = "\'python3 " + os.path.dirname(__file__) + "install.py \"" + zipFile + "\" --manual\'" if manual else "\"\'"
+            print(Format.format(f"Error in installer! Try running {cmd} in your console and check the output!", Format.RED))
+            quit({"message": Format.format("Errorcode: " + str(e), Format.ORANGE), "clearConsole": False})
+        
 def delete(args):
-    splitArgs = args.split(ARGSSEPARATOR)
-    instance = splitArgs[1]
-    if not splitArgs.__contains__("delete"):
+    instance = args["instance"]
+    if not "confirmed" in args:
         deleteMenu = MenuHelper(f"Would you like to delete the instance '{instance}'? All data will be lost!")
-        deleteMenu.addItem("No", main, splitArgs[0])
-        deleteMenu.addItem("Yes", delete, argsParser(splitArgs[0], addArgs = [instance, "delete"]))
+        deleteMenu.addItem("No", main, {"path": args["path"]})
+        deleteMenu.addItem("Yes", delete, {"path": args["path"],"instance": instance, "confirmed": True})
         deleteMenu.show()
-    elif splitArgs.__contains__("delete"):
+    elif "confirmed" in args and args["confirmed"]:
         print(f"Deleting instance '{instance}'...")
         shutil.rmtree(PACKSPATH + instance)
         print("Done!")
         time.sleep(1)
-        if not splitArgs.__contains__("return"):
-            main(argsParser(splitArgs[0].split(PATHSEPARATOR)[:-1]))
+        if (not "return" in args) or ("return" in args and args["return"] == False):
+            main()
 
 def reset(args):
-    splitArgs = args.split(ARGSSEPARATOR)
-    instance = splitArgs[1]
-    if not splitArgs.__contains__("reset"):
+    instance = args["instance"]
+    if not "confirmed" in args:
         resetMenu = MenuHelper(f"Would you like to reset the instance '{instance}'? All data will be lost!")
-        resetMenu.addItem("No", main, splitArgs[0])
-        resetMenu.addItem("Yes", reset, argsParser(splitArgs[0], addArgs = [instance, "reset"]))
+        resetMenu.addItem("No", main, {"path": args["path"]})
+        resetMenu.addItem("Yes", reset, {"path": args["path"], "instance": instance, "confirmed": True})
         resetMenu.show()
-    elif splitArgs.__contains__("reset") and not splitArgs.__contains__("toDownload"):
+    elif "confirmed" in args and args["confirmed"] == True and not "toDownload" in args:
         if not os.path.exists(PACKSPATH + instance + "/.packinfo"):
             notfoundMenu = MenuHelper(f"Packinfo file not found! How do you want to proceed?")
-            notfoundMenu.addItem("delete instance and download it from search", reset, argsParser(splitArgs[0], addArgs = [instance, "reset", "toDownload"]))
-            notfoundMenu.addItem("only delete", delete, argsParser(splitArgs[0], addArgs = [instance, "delete"]))
-            notfoundMenu.addItem("abort", main, splitArgs[0])
+            notfoundMenu.addItem("delete instance and download it from search", reset, {"path": args["path"], "instance": instance, "confirmed": True, "toDownload": True})
+            notfoundMenu.addItem("only delete", delete, {"path": args["path"]})
+            notfoundMenu.addItem("abort", main, {"path": args["path"]})
             notfoundMenu.show()
         
         packInfo = {}
         with open(PACKSPATH + instance + "/.packinfo") as packInfoFile:
             packInfo = json.load(packInfoFile)
-            packInfoFile.close()
         
-        functionExecutor(delete, argsParser(splitArgs[0], addArgs = [instance, "delete", "return"]))
+        delete({"path": args["path"], "instance": instance, "confirmed": True, "return": True})
         
         zipFile = DOWNLOADPATH + f"{instance}.zip"
-        resp = download(packInfo['downloadUrl'], zipFile)
+        resp = download(packInfo["selectedVersion"]['downloadUrl'], zipFile)
         if resp != 200:
-            quit(Format.format(f"Error! Can't download {zipFile} from '{url}': {resp}", Format.RED))
+            quit({"message": Format.format(f"Error! Can't download {zipFile} from \'{packInfo['selectedVersion']['downloadUrl']}\': {resp}", Format.RED)})
         
         with open(DOWNLOADPATH + ".packinfo", "wt") as packInfoFile:
             packInfoFile.writelines(json.dumps(packInfo))
-            packInfoFile.close()
         
-        functionExecutor(install, argsParser(splitArgs[0], addArgs = ["local", "zip", zipFile]))
-    elif splitArgs.__contains__("reset") and splitArgs.__contains__("toDownload"):
-        functionExecutor(delete, argsParser(splitArgs[0], addArgs = [instance, "delete", "return"]))
-        functionExecutor(install, argsParser(splitArgs[0], addArgs = "download"))
+        install({"path": args["path"], "source": "local", "zip": zipFile})
+    elif "confirmed" in args and args["confirmed"] == True and "toDownload" in args and args["toDownload"] == True:
+        delete({"path": args["path"], "instance": instance, "mode": "delete", "return": True})
+        install({"path": args["path"], "source": "download"})
 
-def cleanUp(returnToMenu = True, fullCleanUp = False):
+def cleanUp(args = {}):
+    
+    if not "path" in args:
+        args["path"] = "home"
+    if not "returnToMenu" in args:
+        args["returnToMenu"] = True
+    if not "fullCleanUp" in args:
+        args["fullCleanUp"] = False
     print("Cleanup...")
     if CLEANUPFILES:
         try:
             shutil.rmtree(DOWNLOADPATH)
-            if not fullCleanUp:
+            if not args["fullCleanUp"]:
                 os.mkdir(DOWNLOADPATH)
-        except:
+        except (shutil.Error, FileNotFoundError):
             pass
-    if returnToMenu == False:
+    if args["returnToMenu"] == False:
         return
-    main("Home%install")
+    main({"path": args["path"]})
 
 ################################################################################################################################################
 # this is the main function to manage the navigation
 # separator constants:
 PATHSEPARATOR = "%" # is used to get navigation path for example to serve the "back"-function
-ARGSSEPARATOR = "|" # is used to seperate arguments for the functions. Could have used a dict or list instead of a string with separators, but oh well...
-VARSPARSER = "&" # is used to signal an variable for MenuHelper (variable exchanger in Format.exchange())
 
 # file save constants:
-DOWNLOADPATH = os.path.dirname(__file__) + f"/.tmp/{time.time()}/" # path to temporarily download files
+DOWNLOADPATH = f"/tmp/mcmodpackinstaller/" # path to temporarily download files
 PACKSPATH = os.path.dirname(__file__) + "/packs/"
-NEWINSTANCENAME = "&DisplayModpackVersion&" # available variables: ModpackName, ModpackId, DisplayModpackVersion, NowTime (Format: hhmmss), NowDateUS (Format: MMDDYY), NowDate (Format: DDMMYY) 
+NEWINSTANCENAME = "{ModpackVersionName}" # 
+# available variables: ModpackName, ModpackId, ModpackVersionName, MinecraftVersionName, ModpackVersionId, Modloader, NowTime (Format: hhmmss), NowDateUS (Format: MMDDYY), NowDate (Format: DDMMYY) 
 # TODO: more arguments (around line: 288)
 # The Instance-Name gets transfered, if modpack is reset. Therefore if you use date and time vars it will NOT get updated (could be implemented, important credentials could be saved in .packinfo)
 
@@ -439,60 +481,54 @@ AGENT = "Mozilla/5.0 (Windows NT 6.1; Win64; x64) AppleWebKit/537.36 (KHTML, lik
 HEADER = {"User-Agent": AGENT}
 
 # launch constants
-INSTALLERCOMMAND = f'python3 {os.path.dirname(__file__)}/install.py "&ZipFilePath&" --manual' # command to call installer.py
-LAUNCHERCOMMAND = 'minecraft-launcher --workDir "&PathToInstance&/.minecraft"' # command to call minecraft client
+MANUALFROMVERSION = {"Forge": "0.0.0", "Fabric":"100.100.100"} # the last supported mc version for automatic install (ex. 1.12.2), 0.0.0 = always manual; 100.100.100 = always automatic (except minecraft gets to version 100.100.100)
+LAUNCHERCOMMAND = 'minecraft-launcher --workDir "{PathToInstance}/.minecraft"' # command to call minecraft client
 
 # misc
 CLEANUPFILES = True
+NOCOLORS = None # None = listen to command line argument, default False; False/True overwrites command line argument
 ################################################################################################################################################
-def main(path = "home"):
-    splitPath = path.split(PATHSEPARATOR)
+def main(args = {}):
+    if not "path" in args:
+        args["path"] = "home"
+    splitPath = args["path"].split(PATHSEPARATOR)
 
     if splitPath[-1] == "selector":
         selectorMenu = MenuHelper("Launch instances")
-        selectorMenu.addItems([f for f in os.listdir(PACKSPATH) if not f.startswith('.')], main, argsParser(splitPath, addPath = "launch&NAME&"))
-        selectorMenu.addItem("back", main, argsParser(splitPath[:-1]))
+        selectorMenu.addItems([f for f in os.listdir(PACKSPATH) if not f.startswith('.')], main, {"path": args["path"] + PATHSEPARATOR + "launch{NAME}"})
+        selectorMenu.addItem("back", main, {"path": PATHSEPARATOR.join(splitPath[:-1])})
         selectorMenu.show()
 
     elif splitPath[-1][:6] == "launch":
         if len(splitPath[-1]) <= 6:
-            quit(Format.format("Error in Code: No launch path in menu specified!", Format.RED))
+            quit({"message": Format.format("Error in Code: No launch path in menu specified!", Format.RED)})
         launchMenu = MenuHelper(splitPath[-1][6:])
-        launchMenu.addItem("launch instance", launch, argsParser(splitPath, addArgs = "&CAP&"))
-        launchMenu.addItem("reset instance", reset, argsParser(splitPath, addArgs = "&CAP&"))
-        launchMenu.addItem("delete instance", delete, argsParser(splitPath, addArgs = "&CAP&"))
-        launchMenu.addItem("back", main, argsParser(splitPath[:-1]))
+        launchMenu.addItem("launch instance", launch, {"path": args["path"], "instance": "{CAP}"})
+        launchMenu.addItem("reset instance", reset, {"path": args["path"], "instance": "{CAP}"})
+        launchMenu.addItem("delete instance", delete, {"path": args["path"], "instance": "{CAP}"})
+        launchMenu.addItem("back", main, {"path": PATHSEPARATOR.join(splitPath[:-1])})
         launchMenu.show()
 
     elif splitPath[-1] == "install":
         installMenu = MenuHelper("Install new instances")
-        installMenu.addItem("over website download", install, argsParser(splitPath, addArgs = "download"))
-        installMenu.addItem("over local package", install, argsParser(splitPath, addArgs = "local"))
-        
-        installMenu.addItem("back", main, argsParser(splitPath[:-1]))
+        installMenu.addItem("over website download", install, {"path": args["path"], "source": "web"})
+        installMenu.addItem("over local package", install, {"path": args["path"], "source": "local"})
+        installMenu.addItem("back", main, {"path": PATHSEPARATOR.join(splitPath[:-1])})
         installMenu.show()
 
     else:
         mainMenu = MenuHelper("Launcher Tool for CurseForge Modpack Installer from cdbbnny")
-        mainMenu.addItem("launch", main, argsParser(splitPath, addPath = "selector"))
-        mainMenu.addItem("install",main, argsParser(splitPath, addPath = "install"))
-        mainMenu.addItem("quit",quit, "Bye!")
+        mainMenu.addItem("launch", main, {"path": args["path"] + PATHSEPARATOR + "selector"})
+        mainMenu.addItem("install",main, {"path": args["path"] + PATHSEPARATOR + "install"})
+        mainMenu.addItem("quit",quit)
         mainMenu.show()
     print(Format.format("You shouldn't be here!", Format.RED))
 
-def argsParser(path, **additionalArguments):
-    addPath = [] if not additionalArguments.__contains__("addPath") \
-        else additionalArguments["addPath"] if type(additionalArguments["addPath"]).__name__ == "list" \
-            else [additionalArguments["addPath"]]
-    
-    addArgs = [] if not additionalArguments.__contains__("addArgs") \
-        else additionalArguments["addArgs"] if type(additionalArguments["addArgs"]).__name__ == "list" \
-            else [additionalArguments["addArgs"]]
-    
-    path = path if type(path).__name__ == "list" else [path]
-
-    return ARGSSEPARATOR.join([PATHSEPARATOR.join(path + addPath)] + addArgs)
-
 ################################################################################################################################################
 if __name__ == "__main__":
-    main()
+    parser = argparse.ArgumentParser()
+    parser.add_argument("-nc", "--no-colors", "--no-colours",help="Deactivate colorful output" ,action='store_const', const=True, default=False)
+    commandlineArgs = parser.parse_args()
+    if NOCOLORS == None:
+        NOCOLORS = commandlineArgs.no_colors
+    cleanUp({"path":"home"}) # sarts main function
