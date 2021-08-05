@@ -5,7 +5,6 @@ import subprocess
 import sys
 import requests
 # from util import *
-import magic # must be installed maybe: pip3 install magic-python
 import json
 import time
 import shutil
@@ -18,7 +17,7 @@ def download(url, dest):
     print("Downloading %s" % url)
     try:
         r = requests.get(url, headers = HEADER)
-    except (requests.exceptions.ConnectionError, requests.exceptions.HTTPError, requests.exceptions.Timeout, requests.exceptions.TooManyRedirects) as e:
+    except (requests.exceptions) as e:
         return 404 # it could return a HTML error like 400 or 404 here as well
     print("Write file...")
     try:
@@ -38,6 +37,15 @@ try:
 except OSError:
     def clearConsole(): 
         print("\n" * 100)
+
+def addDicts(dict1, *dict2):
+    tempDict = dict1
+    for dict in dict2:
+        tempDict.update(dict)
+    
+    return tempDict
+
+
 
 # handels colors and variable exchangees
 # TODO: Maybe add support for non Ansi consoles (because the color codes are shwon, if the console doesn't support those)
@@ -198,7 +206,7 @@ def install(args):
                 quit({"message": Format.format("Error! You shouldn't be here anymore! Check the main function! (Calling from install())", Format.BLUE)})
             try:
                 id = int(search)
-                install({**args, "selectedPack": f"{id}"})
+                install(addDicts(args, {"selectedPack": f"{id}"}))
                 break
             except ValueError:
                 name = search.replace(" ", "%20")
@@ -228,7 +236,7 @@ def install(args):
             searchRes.update({dataPart["name"]: dataPart["id"]})
         
         searchMenu = MenuHelper(f"Search Result for '{search}'")
-        searchMenu.addItems(searchRes, install, {**args, "selectedPackName": "{NAME}"})
+        searchMenu.addItems(searchRes, install, addDicts(args, {"selectedPackName": "{NAME}"}))
         searchMenu.addItem("quit", cleanUp)
         searchMenu.show()
     
@@ -239,7 +247,7 @@ def install(args):
         searchRes = {}
         for dataPart in data:
             searchRes.update({dataPart["name"]: dataPart["id"]})
-        install({**args, "selectedPack": searchRes[args["selectedPackName"]]})
+        install(addDicts(args, {"selectedPack": searchRes[args["selectedPackName"]]}))
 
     elif args["source"] == "web" and "selectedPack" in args and not "selectedVersionName" in args:
         clearConsole()
@@ -283,7 +291,7 @@ def install(args):
         modpackName = packInfoSearch["modpackName"]
 
         versionMenu = MenuHelper(f"Select an Version for '{modpackName}'")
-        versionMenu.addItems(packInfoSearch["latestFiles"], install, {**args, "selectedVersionName": "{NAME}", "packInfoSearch": packInfoSearch})
+        versionMenu.addItems(packInfoSearch["latestFiles"], install, addDicts(args, {"selectedVersionName": "{NAME}", "packInfoSearch": packInfoSearch}))
         versionMenu.addItem("quit", cleanUp)
         versionMenu.show()
 
@@ -337,9 +345,8 @@ def install(args):
                 print(Format.format(f"Error! Can't find '{path}'!", Format.RED))
                 continue
 
-            if magic.detect_from_filename(path).mime_type != "application/zip":
+            if not path.endswith('.zip'):
                 print(Format.format(f"Error! Specified path '{path}' does not lead to an Zip-Archive!", Format.RED))
-                print(Format.format(f"The specified path leads to mime type '{magic.detect_from_filename(path).mime_type}'!", Format.ORANGE))
                 continue
 
             break
@@ -364,16 +371,11 @@ def install(args):
             else:
                 versionNumberString += "000"
         versionNumber = int(versionNumberString)
-        
-        MANUALFROMVERSIONString = ""
-        for i in range(0, 3): # and the constant
-            if len(MANUALFROMVERSION[modloader].split(".")) > i: # again to be safe, if user only uses "1.8" instead of "1.8.0"
-                MANUALFROMVERSIONString += MANUALFROMVERSION[modloader].split(".")[i].zfill(3)
-            else:
-                MANUALFROMVERSIONString += "000"
-        MANUALFROMVERSIONNumber = int(MANUALFROMVERSIONString)
-
-        if versionNumber <= MANUALFROMVERSIONNumber:
+        print()
+        if AUTOMATICVERSION[modloader]["only"].__contains__(versionNumber) or (len(AUTOMATICVERSION[modloader]["only"]) == 0 and \
+            versionNumber <= AUTOMATICVERSION[modloader]["max"] and \
+            versionNumber >= AUTOMATICVERSION[modloader]["min"] and \
+            not AUTOMATICVERSION[modloader]["not"].__contains__(versionNumber)):
             manual = False
         else:
             manual = True
@@ -481,7 +483,13 @@ AGENT = "Mozilla/5.0 (Windows NT 6.1; Win64; x64) AppleWebKit/537.36 (KHTML, lik
 HEADER = {"User-Agent": AGENT}
 
 # launch constants
-MANUALFROMVERSION = {"Forge": "0.0.0", "Fabric":"100.100.100"} # the last supported mc version for automatic install (ex. 1.12.2), 0.0.0 = always manual; 100.100.100 = always automatic (except minecraft gets to version 100.100.100)
+AUTOMATICVERSION = {"Forge": {"min": 00000000, "max": 100100100, "not": [], "only": [1012002]}, "Fabric": {"min": 00000000, "max": 100100100, "not": [], "only": []}} # seems a bit overkill, but now it can be precisely determined, wich version is supported.
+    # it uses a special formating: Minecraft version aaa.bbb.ccc = aaabbbccc, 1.12.2 -> 001012002 or 1012002
+    # if not/only is empty, it will be ignored
+    # min/max specifies min/max version, wich could be automatically installed
+    # every version is supported: {"min": 00000000, "max": 100100100, "not": [], "only": []}
+    # only 1.12.2 is supported: {"min": 00000000, "max": 100100100, "not": [], "only": [1012002]}
+    # version 1.12 - 1.12.2 is supported: {"min": 1012000, "max": 1012002, "not": [], "only": []}
 LAUNCHERCOMMAND = 'minecraft-launcher --workDir "{PathToInstance}/.minecraft"' # command to call minecraft client
 
 # misc
