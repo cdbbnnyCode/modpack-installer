@@ -16,7 +16,7 @@ def main(manifest, mcver, mlver, packname, mc_dir, manual):
             % (forge_fullver, forge_fullver)
     outpath = '/tmp/forge-%s-installer.jar' % forge_fullver
     if not os.path.exists(outpath):
-        resp = download(url, outpath)
+        resp = download(url, outpath, True)
         if resp != 200:
             print("Got %d error trying to download Forge" % resp)
             sys.exit(2)

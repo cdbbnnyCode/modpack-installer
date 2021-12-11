@@ -17,7 +17,7 @@ def download(session, url, dest):
     return r.status_code
 
 def get_json(session, url):
-    r = session.get(url, headers={'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64; rv:75.0) Gecko/20100101 Firefox/75.0'})
+    r = session.get(url)
     if r.status_code != 200:
         print("Error %d trying to access %s" % (r.status_code, url))
         print(r.text)
@@ -46,6 +46,7 @@ def fetch_mod(session, f, out_dir):
 async def download_mods_async(manifest, out_dir):
     with ThreadPoolExecutor(max_workers=4) as executor, \
             requests.Session() as session:
+        session.headers['User-Agent'] = 'Mozilla/5.0 (X11; Linux x86_64; rv:75.0) Gecko/20100101 Firefox/75.0'
         loop = asyncio.get_event_loop()
         tasks = []
         for f in manifest['files']:
