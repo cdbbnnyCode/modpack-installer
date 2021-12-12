@@ -1,9 +1,8 @@
 #!/usr/bin/env python3
 import sys
 import os
-import json
-import requests
 import subprocess
+import time
 from util import *
 
 # https://files.minecraftforge.net/maven/net/minecraftforge/forge/1.12.2-14.23.5.2847/forge-1.12.2-14.23.5.2847-universal.jar
@@ -23,21 +22,32 @@ def main(manifest, mcver, mlver, packname, mc_dir, manual):
 
     # Run the Forge auto-install hack
     if manual:
+        print("Using the manual installer!")
+        print("***** NEW: INSTALL TO THE MAIN .MINECRAFT DIRECTORY *****")
+        print("*****   (Just hit 'OK' with the default settings)   *****")
+        for i in range(20):
+            print("^ ", end="", flush=True)
+            time.sleep(0.05)
+
         subprocess.run(['java', '-jar', outpath])
     else:
         if not os.path.exists('ForgeHack.class'):
             subprocess.run(['javac', 'ForgeHack.java'])
-        subprocess.run(['java', 'ForgeHack', outpath, mc_dir])
+        exit_code = subprocess.run(['java', 'ForgeHack', outpath, mc_dir]).returncode
+        if exit_code != 0:
+            print("Error running the auto-installer, try using --manual.")
+            sys.exit(3)
 
-    # Rename the forge profile
-    with open(mc_dir + '/launcher_profiles.json', 'r') as f:
-        launcher_profiles = json.load(f)
-
-    if 'forge' not in launcher_profiles['profiles']:
-        print("ERROR: Forge did not install correctly!")
+    if not os.path.exists(mc_dir + '/versions/' + get_version_id(mcver, mlver)):
+        print("Forge installation failed.")
         sys.exit(3)
 
-    rename_profile(launcher_profiles, 'forge', packname)
 
-    with open(mc_dir + '/launcher_profiles.json', 'w') as f:
-        json.dump(launcher_profiles, f)
+def get_version_id(mcver, mlver):
+    mcv_split = mcver.split('.')
+    mcv = int(mcv_split[0]) * 1000 + int(mcv_split[1])
+
+    if mcv > 1012:
+        return '%s-forge-%s' % (mcver, mlver)
+    else:
+        return '%s-forge%s-%s' % (mcver, mcver, mlver)
