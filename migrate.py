@@ -1,9 +1,18 @@
 import os
 import json
 import shutil
+import sys
 
 def main():
     user_mcdir = os.getenv('HOME') + '/.minecraft'
+    if len(sys.argv) > 1:
+        if sys.argv[1] == '-h' or sys.argv[1] == '--help':
+            print("Usage:")
+            print("    %s -h|--help    Print this help message")
+            print("    %s [mcdir]      Migrate modpack launcher data")
+            return
+        else:
+            user_mcdir = sys.argv[1]
 
     with open(user_mcdir + '/launcher_profiles.json', 'r') as f:
         launcher_profiles = json.load(f)

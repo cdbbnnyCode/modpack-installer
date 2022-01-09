@@ -26,7 +26,10 @@ def start_launcher(mc_dir):
 def get_user_mcdir():
     return os.getenv('HOME') + '/.minecraft'
 
-def main(zipfile, manual=False):
+def main(zipfile, user_mcdir=None, manual=False):
+    if user_mcdir is None:
+        user_mcdir = get_user_mcdir()
+
     # Extract pack
     packname = os.path.splitext(zipfile)[0]
     packname = os.path.basename(packname)
@@ -107,7 +110,7 @@ def main(zipfile, manual=False):
 
     print("Updating user launcher profiles")
 
-    user_mcdir = get_user_mcdir()
+    # user_mcdir = get_user_mcdir()
     with open(user_mcdir + '/launcher_profiles.json', 'r') as f:
         launcher_profiles = json.load(f)
 
@@ -200,5 +203,6 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('zipfile')
     parser.add_argument('--manual', dest='forge_disable', action='store_true')
+    parser.add_argument('--mcdir', dest='mcdir')
     args = parser.parse_args(sys.argv[1:])
-    main(args.zipfile, args.forge_disable)
+    main(args.zipfile, args.mcdir, args.forge_disable)
