@@ -59,7 +59,7 @@ pip3 install --user requests
     they are stored in a central `.modcache` directory. To clean up unused mods, run
     the `clean.py` script.
 
-### How it Works (for Forge modpacks)
+### How it Works
 The installer script goes through several steps to install the modpack:
 * First, it unzips the provided zip file into the `.packs` folder. The zip file
   contains a manifest file defining which version of Forge to use and a list of
@@ -69,13 +69,15 @@ The installer script goes through several steps to install the modpack:
 * Next, it runs [`forge_install.py`](/forge_install.py) to install Forge. This script downloads the
   requested version of the Forge installer and uses the [`ForgeHack.java`](/ForgeHack.java) program
   to bypass the install GUI and install directly to the user's *main* `.minecraft` folder.
+  * The Fabric installer has command-line options to install the client directly, so `fabric_install.py`
+    directly runs the installer.
 * Next, it uses the [`mod_download.py`](/mod_download.py) script to download the required mods into
   the `.modcache` folder. The downloader script also generates a list of the mod
   jar files that are used by the modpack. The installer script then uses this
   list to create symbolic links to each mod. This reduces total disk usage when multiple
   modpacks use the same mod.
 * Finally, the installer copies all of the folders in `overrides` from the unzipped
-  modpack folder into the `.minecraft` folder.
+  modpack folder into the modpack's `.minecraft` folder.
 
 #### The `clean.py` script
 This script is intended to upgrade modpacks created with previous versions of the installer
