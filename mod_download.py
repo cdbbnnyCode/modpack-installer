@@ -4,6 +4,7 @@ import sys
 import requests
 import json
 import asyncio
+import time
 from concurrent.futures import ThreadPoolExecutor
 
 api_url = 'https://addons-ecs.forgesvc.net/api/v2'
@@ -28,11 +29,17 @@ def fetch_mod(session, f, out_dir):
     pid = f['projectID']
     fid = f['fileID']
     project_info = get_json(session, api_url + ('/addon/%d' % pid))
+    if project_info is None:
+        print("fetch failed")
+        return (f, 'error')
+
     # print(project_info['websiteUrl'])
     file_type = project_info['websiteUrl'].split('/')[4] # mc-mods or texture-packs
     info = get_json(session, api_url + ('/addon/%d/file/%d' % (pid, fid)))
     if info is None:
-        return None
+        print("fetch failed")
+        return (f, 'error')
+
     fn = info['fileName']
     dl = info['downloadUrl']
     out_file = out_dir + '/' + fn
@@ -40,7 +47,11 @@ def fetch_mod(session, f, out_dir):
         if os.path.getsize(out_file) == info['fileLength']:
             print("%s OK" % fn)
             return (out_file, file_type)
-    download(session, dl, out_file)
+    
+    status = download(session, dl, out_file)
+    if status != 200:
+        print("download failed (error %d)" % status)
+        return (f, 'error')
     return (out_file, file_type)
 
 async def download_mods_async(manifest, out_dir):
@@ -53,9 +64,23 @@ async def download_mods_async(manifest, out_dir):
             task = loop.run_in_executor(executor, fetch_mod, *(session, f, out_dir))
             tasks.append(task)
 
-        jars = []
-        for resp in await asyncio.gather(*tasks):
-            jars.append(resp)
+        while len(tasks) > 0:
+            jars = []
+            retry_tasks = []
+
+            for resp in await asyncio.gather(*tasks):
+                if resp[1] == 'error':
+                    print("failed to fetch %s, retrying later" % resp[0])
+                    retry_tasks.append(resp[0])
+                else:
+                    jars.append(resp)
+
+            tasks = []
+            if len(retry_tasks) > 0:
+                print("retrying...")
+                time.sleep(2)
+            for f in retry_tasks:
+                tasks.append(loop.run_in_executor(executor, fetch_mod, *(session, f, out_dir)))
         return jars
 
 

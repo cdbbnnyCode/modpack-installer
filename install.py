@@ -131,7 +131,7 @@ def main(zipfile, user_mcdir=None, manual=False):
         json.dump(launcher_profiles, f, indent=2)
 
     if not os.path.exists(user_mcdir + '/versions/' + ml_version_id):
-        modloaders[modloader](manifest, mcver, mlver, packname, user_mcdir, manual)
+        modloaders[modloader].main(manifest, mcver, mlver, packname, user_mcdir, manual)
     else:
         print("[modloader already installed]")
 
@@ -176,7 +176,7 @@ def main(zipfile, user_mcdir=None, manual=False):
                         shutil.copyfile(f, mc_dir + '/resources/' + dir)
                 shutil.rmtree(texpack_dir)
             else:
-                print("Illegal type %s" % type)
+                print("Unknown file type %s" % type)
                 sys.exit(1)
 
     # Create success marker
