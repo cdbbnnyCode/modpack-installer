@@ -4,13 +4,11 @@ import java.io.File;
 import java.net.URL;
 import java.net.URLClassLoader;
 import java.net.MalformedURLException;
-import java.util.Arrays;
 import java.lang.reflect.Proxy;
 import java.lang.reflect.Method;
 import java.lang.reflect.InvocationHandler;
 import java.io.OutputStream;
 import java.util.function.Predicate;
-import java.lang.reflect.InvocationTargetException;
 
 public class ForgeHack
 {
@@ -60,7 +58,7 @@ public class ForgeHack
   private static boolean run_v1(File target, ClassLoader loader)
       throws ReflectiveOperationException
   {
-    Class clientInstall = null;
+    Class<?> clientInstall = null;
     try
     {
       clientInstall = Class.forName("cpw.mods.fml.installer.ClientInstall", true, loader);
@@ -70,7 +68,7 @@ public class ForgeHack
       // must be v1.5+ or v2
       return false;
     }
-    Object installer = clientInstall.newInstance();
+    Object installer = clientInstall.getConstructor().newInstance();
     clientInstall.getDeclaredMethod("run", File.class).invoke(installer, target);
 
     return true;
@@ -80,8 +78,8 @@ public class ForgeHack
       throws ReflectiveOperationException
   {
     // "Import" the required classes
-    Class predicate = null;
-    Class clientInstall = null;
+    Class<?> predicate = null;
+    Class<?> clientInstall = null;
 
     try
     {
@@ -100,7 +98,7 @@ public class ForgeHack
 
     // Run the client install function. This will pop up a dialog and install Forge to the
     // specified Minecraft directory.
-    Object install = clientInstall.newInstance();
+    Object install = clientInstall.getConstructor().newInstance();
     clientInstall.getDeclaredMethod("run", File.class, predicate).invoke(install, target, pred);
 
     return true;
@@ -110,10 +108,10 @@ public class ForgeHack
       throws ReflectiveOperationException
   {
     // classes needed
-    Class c_ClientInstall = null;
-    Class c_Util = null;
-    Class c_InstallV1 = null;
-    Class c_ProgressCallback = null;
+    Class<?> c_ClientInstall = null;
+    Class<?> c_Util = null;
+    Class<?> c_InstallV1 = null;
+    Class<?> c_ProgressCallback = null;
 
     try
     {
@@ -173,11 +171,10 @@ public class ForgeHack
       System.exit(1);
     }
 
-    // TODO: This program is written for the v1.5 Forge installer, which is used
-    // for 1.11 and 1.12 and possibly more. Earlier versions may be compatible, but
-    // the v2.0 installer seems to be rewritten and will need a different interfacing
-    // algorithm. FORTUNATELY, most popular mods/packs are written for 1.12.2 these
-    // days.
+    // NOTE: While this now has compatibility for all known versions of the
+    // installer, older installers seem to be broken due to missing mirror servers.
+    // As a result, support for any installer versions older than v2 may be
+    // dropped in the near future.
 
     ClassLoader loader = getClassLoader(args[0]);
     File target = new File(args[1]);
