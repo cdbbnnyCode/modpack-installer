@@ -195,9 +195,8 @@ def main(zipfile, user_mcdir=None, manual=False):
     print()
     print()
     print()
-    print("To launch your new modpack, use:")
-    print("  cd %s" % (mc_dir[:-11]))
-    print("  minecraft-launcher --workDir $(realpath .minecraft)")
+    print("To launch your new modpack, just open the Minecraft launcher normally.")
+    print("The modpack will be available in your installations list.")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
