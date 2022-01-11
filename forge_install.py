@@ -38,16 +38,33 @@ def main(manifest, mcver, mlver, packname, mc_dir, manual):
             print("Error running the auto-installer, try using --manual.")
             sys.exit(3)
 
-    if not os.path.exists(mc_dir + '/versions/' + get_version_id(mcver, mlver)):
-        print("Forge installation failed.")
+    ver_id = get_version_id(mcver, mlver)
+    if not os.path.exists(mc_dir + '/versions/' + ver_id):
+        print("Forge installation not found.")
+        if manual:
+            print("Make sure you browsed to the correct minecraft directory.")
+        print("Expected to find a directory named %s in %s" % (ver_id, mc_dir + '/versions'))
+        print("If a similarly named directory was created in the expected folder, please submit a")
+        print("bug report.")
         sys.exit(3)
 
 
 def get_version_id(mcver, mlver):
     mcv_split = mcver.split('.')
     mcv = int(mcv_split[0]) * 1000 + int(mcv_split[1])
+    mlv_split = mlver.split('.')
+    mlv = int(mlv_split[-1]) # modloader patch version
 
-    if mcv > 1012:
-        return '%s-forge-%s' % (mcver, mlver)
-    else:
+    if mcv < 1008:
+        # 1.7 (and possibly lower, haven't checked)
+        return '%s-Forge%s-%s' % (mcver, mlver, mcver)
+    elif mcv < 1010:
+        # 1.8, 1.9
+        return '%s-forge%s-%s-%s' % (mcver, mcver, mlver, mcver)
+    elif mcv < 1012 or (mcv == 1012 and mlv < 2851):
+        # 1.10, 1.11, 1.12 (up to 1.12.2-14.23.5.2847)
         return '%s-forge%s-%s' % (mcver, mcver, mlver)
+    else:
+        # 1.12.2-14.23.5.2851 and above
+        return '%s-forge-%s' % (mcver, mlver)
+        
