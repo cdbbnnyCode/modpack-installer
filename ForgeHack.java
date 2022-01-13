@@ -137,6 +137,9 @@ public class ForgeHack
 
     // load the profile
     Object profile = c_Util.getDeclaredMethod("loadInstallProfile").invoke(null); // returns InstallV1 object
+
+    
+
     // load the progress monitor (stdout only)
     Object monitor = c_ProgressCallback.getDeclaredMethod("withOutputs",
         OutputStream[].class).invoke(null, new Object[] { new OutputStream[] {System.out} });
@@ -180,15 +183,15 @@ public class ForgeHack
     File target = new File(args[1]);
     File jarfile = new File(args[0]);
 
-    System.out.println("Attempting to launch v2 installer");
-    if (run_v2(target, jarfile, loader))
+    System.out.println("Attempting to launch v1.5+ installer");
+    if (run_v15(target, loader))
     {
       System.out.println("Success!");
       return;
     }
 
-    System.out.println("Attempting to launch v1.5+ installer");
-    if (run_v15(target, loader))
+    System.out.println("Attempting to launch v2 installer");
+    if (run_v2(target, jarfile, loader))
     {
       System.out.println("Success!");
       return;

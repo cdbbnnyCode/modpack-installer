@@ -31,7 +31,17 @@ def main(manifest, mcver, mlver, packname, mc_dir, manual):
 
         subprocess.run(['java', '-jar', outpath])
     else:
+        compile_hack = False
         if not os.path.exists('ForgeHack.class'):
+            compile_hack = True
+        else:
+            src_modtime = os.stat('ForgeHack.java').st_mtime
+            cls_modtime = os.stat('ForgeHack.class').st_mtime
+            if src_modtime > cls_modtime:
+                print("hack source file updated, recompiling")
+                compile_hack = True
+
+        if compile_hack:
             subprocess.run(['javac', 'ForgeHack.java'])
         exit_code = subprocess.run(['java', 'ForgeHack', outpath, mc_dir]).returncode
         if exit_code != 0:
