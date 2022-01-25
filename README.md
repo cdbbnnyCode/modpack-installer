@@ -1,5 +1,5 @@
 ## CurseForge Modpack Installer  
-###### V2.2-beta
+###### V2.2.1-beta
 This command-line tool allows easy installation of CurseForge modpacks on Linux
 systems. It installs each modpack in a semi-isolated environment, which prevents
 them from modifying important settings and data in your main Minecraft installation.
@@ -110,6 +110,13 @@ This project is licensed under the MIT license. See the LICENSE file for details
 
 
 ### Changelog
+#### v2.2.1-beta - 2022-01-25
+* Fix `ForgeHack` to work with older installer versions (tested on latest major releases down to
+  1.7.10).
+* Automatically recompile the `ForgeHack` class file when its corresponding source file is updated.
+* Fix a serious mod downloader bug where server errors would cause only the retried downloads to be
+  linked correctly (#12).
+
 #### v2.2-beta - 2022-01-10
 * Move modloaders and launcher profiles to the main `.minecraft` folder.
   * This approach works better with recent versions of the launcher because of the way that they
@@ -118,7 +125,7 @@ This project is licensed under the MIT license. See the LICENSE file for details
     modloader (which appears as a separate Minecraft version) and the launcher profile are migrated.
   * The `migrate.py` script is provided to move existing installations.
 * Update `ForgeHack` so that it works for recent versions of the Forge installer.
-* Fix mod downloader so that it handles server errors properly.
+* Fix mod downloader so that it handles server errors properly (#9).
 
 #### v2.1-beta - 2021-07-24
 * Migrate `assets` to a global directory
@@ -126,7 +133,7 @@ This project is licensed under the MIT license. See the LICENSE file for details
   unused mods.
 
 #### v2.0-beta - 2021-07-10
-* Fabric modloader support
+* Fabric modloader support (#1)
 * Add `--manual` option to open the modloader installer GUI when automatic installation
   fails
 * Generate a `launcher-profiles.json` file automatically instead of using the Minecraft
