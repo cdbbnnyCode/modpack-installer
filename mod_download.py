@@ -64,8 +64,8 @@ async def download_mods_async(manifest, out_dir):
             task = loop.run_in_executor(executor, fetch_mod, *(session, f, out_dir))
             tasks.append(task)
 
+        jars = []
         while len(tasks) > 0:
-            jars = []
             retry_tasks = []
 
             for resp in await asyncio.gather(*tasks):
