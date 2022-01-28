@@ -4,7 +4,6 @@ import os
 import subprocess
 import sys
 import requests
-# from util import *
 import json
 import time
 import shutil
@@ -12,13 +11,14 @@ import argparse
 
 import install as installScript
 
-# copied from util, made it a bit safer, could be copied to util.py
+# copied from util
 def download(url, dest):
     print("Downloading %s" % url)
     try:
         r = requests.get(url, headers = HEADER)
     except (requests.RequestException) as e:
-        return 404 # it could return a HTML error like 400 or 404 here as well
+        return 404
+
     print("Write file...")
     try:
         with open(dest, 'wb') as f:
@@ -160,6 +160,16 @@ def quit(args):
     if (not "clearConsole" in args) or ("clearConsole" in args and args["clearConsole"] == True):
         clearConsole()
     cleanUp({"returnToMenu": False, "fullCleanUp": True})
+    # save profile
+    profile = {
+        "newinstancename": NEWINSTANCENAME,
+        "minecraftpath": MINECRAFTPATH,
+        "downloadpath": DOWNLOADPATH,
+        "packspath": PACKSPATH,
+        "nocolors": NOCOLORS
+        }
+    with open(PROFILEFILE, 'w') as f:
+        json.dump(profile, f)
     print(args["message"])
     os._exit(1)
 
@@ -169,7 +179,16 @@ def launch(args):
         quit({"message": Format.format(f"Error! The selected instance under '{folder}' doesn't exist or is broken. Try reset the instance!", Format.RED)})
     if not os.path.exists(PACKSPATH + folder + "/.minecraft/mods"):
         print(Format.format("Warning: Your selected instance does not contain a mods-folder! If this is not desired, then try to reset this instance!", Format.ORANGE))
-    cmd = LAUNCHERCOMMAND.replace(" ", "!").format(PathToInstance = PACKSPATH + folder)
+    cmd = ""
+    if os.path.exists(PACKSPATH + folder + "/.packinfo"):
+        with open(PACKSPATH + folder + "/.packinfo") as packInfoFile:
+            packInfo = json.load(packInfoFile)
+        if "selectedVersion" in packInfo:
+            cmd = LAUNCHERCOMMAND.replace(" ", "!").format(configName = packInfo["selectedVersion"]["configName"] if "configName" in packInfo["selectedVersion"] else "")
+        else:
+            cmd = LAUNCHERCOMMAND.replace(" ", "!").format(configName = "")
+    else:
+        cmd = LAUNCHERCOMMAND.replace(" ", "!").format(configName = "")
     try:
         subprocess.Popen(cmd.replace('"', "").split("!"), close_fds=True, start_new_session=True, stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT)
         print(Format.format(f"Start Launcher with command \'{cmd.replace('!', ' ')}\'. Press [return] to return to selection.", Format.CYAN))
@@ -179,10 +198,10 @@ def launch(args):
         quit({"message": Format.format(f"Error! Your minecraft client doesn't work (correctly). Try to start it manualy: \'{cmd.replace('!', ' ')}\'", Format.RED)})
 
 # The method gets launched with only download or local argument. 
-# if the argument download is found, then it asks the user for name/id. Then it tries to find the pack with the courseforge API (in case of name it gets first 25 results and shows them in a list) The searchquerry gets downloaded to DOWNLOADPATH/tmp
+# if the argument download is found, then it asks the user for name/id. It tries to find the pack with the courseforge API (if name is inputted it shows only 25 results in a list) The searchquerry gets downloaded to DOWNLOADPATH/tmp
 # When one modpack is chosen (by the search result list), the method calls it self with an additional argument ("selectedPack" and the name of the pack)
 # Then it loads the search query again (from local storage) and gets the id of selected pack. This is important, because now it is possible to get direct information of the pack. This direct information is downloaded to DOWNLOADPATH/tmp (gets rewritten)
-# It lists all available versions (in some cases there are some missing, but thats not my fault, it's cursforges), from where the user can choose. The method calls itself again but this time with the additional argument "selectedVersion" and the Version name.
+# It lists all available versions (in some cases there are some missing, but thats not my fault, it's cursforge's), from where the user can choose. The method calls itself adding the additional argument "selectedVersion" and the Version name.
 # This time it gets the downloadlink and downloads all the credentials (zip archive). The function calls itself again, but this time instead of "download" it's getting called with "local", "zip" and the path to the downloaded zip-file
 # Now it executes the install.py script.
 # If in installMenu "local install" is selected, then it calls the method install as well but only with the "local" argument. It asks for the path and calls itself with the additional argument "zip" and the path to the zip-file. This calls the install.py script (as well).
@@ -203,7 +222,6 @@ def install(args):
             search = input()
             if search == "q":
                 main()
-                quit({"message": Format.format("Error! You shouldn't be here anymore! Check the main function! (Calling from install())", Format.BLUE)})
             try:
                 id = int(search)
                 install(addDicts(args, {"selectedPack": f"{id}"}))
@@ -229,7 +247,7 @@ def install(args):
             data = json.load(jsonFile)
         
         if not type(data).__name__ == "list":
-            quit({"message": Format.format(f"Error! The script can't read curseforges API. Please try {url} an verify, that the result is a json-type file (and not '{type(data).__name__})'", Format.RED)})
+            quit({"message": Format.format(f"Error! The script can't read curseforges API. Please download {url} and verify, that the result is a json-type file (and not '{type(data).__name__})'", Format.RED)})
                 
         searchRes = {}
         for dataPart in data:
@@ -276,12 +294,14 @@ def install(args):
         packInfoSearch["latestFiles"] = {}
         for latestFile in reversed(data["latestFiles"]):
             index = 0
-            modloader = "Forge"
+            modloader = "custom"
             for i in range(len(latestFile["sortableGameVersion"])): # important, because curseforge mixes versions
                 if latestFile["sortableGameVersion"][i]["gameVersionName"].find(".") > -1:
                     index = i
                 elif latestFile["sortableGameVersion"][i]["gameVersionName"].find("Fabric") > -1:
                     modloader = "Fabric"
+                elif latestFile["sortableGameVersion"][i]["gameVersionName"].find("Forge") > -1:
+                    modloader = "Forge"
             packInfoSearch["latestFiles"][latestFile["displayName"]] = {
                 "versionId": latestFile["id"], 
                 "downloadUrl": latestFile["downloadUrl"], 
@@ -290,7 +310,7 @@ def install(args):
         
         modpackName = packInfoSearch["modpackName"]
 
-        versionMenu = MenuHelper(f"Select an Version for '{modpackName}'")
+        versionMenu = MenuHelper(f"Select a Version for '{modpackName}'")
         versionMenu.addItems(packInfoSearch["latestFiles"], install, addDicts(args, {"selectedVersionName": "{NAME}", "packInfoSearch": packInfoSearch}))
         versionMenu.addItem("quit", cleanUp)
         versionMenu.show()
@@ -303,19 +323,22 @@ def install(args):
         
         packInfoSearch["selectedVersion"] = packInfoSearch["latestFiles"][args["selectedVersionName"]]
         packInfoSearch["selectedVersion"]["versionName"] = args["selectedVersionName"]
-        
-        zipFile = DOWNLOADPATH + \
-            NEWINSTANCENAME.format(
-                ModpackName = modpackName, 
-                ModpackId = modpackId, 
-                ModpackVersionName = packInfoSearch["selectedVersion"]["versionName"], 
+
+        instanceName = NEWINSTANCENAME.format(
+                ModpackName = modpackName,
+                ModpackId = modpackId,
+                ModpackVersionName = packInfoSearch["selectedVersion"]["versionName"],
                 MinecraftVersionName = packInfoSearch["selectedVersion"]["minecraftVersionName"],
                 ModpackVersionId = packInfoSearch["selectedVersion"]["versionId"],
                 Modloader = packInfoSearch["selectedVersion"]["modloader"],
-                NowTime = time.strftime("%H%M%S", time.localtime()), 
-                NowDate = time.strftime("%d%m%y", time.localtime()), 
+                NowTime = time.strftime("%H%M%S", time.localtime()),
+                NowDate = time.strftime("%d%m%y", time.localtime()),
                 NowDateUS = time.strftime("%m%d%y", time.localtime())
-            ).replace(".zip","") + ".zip"
+            ).replace(".zip","")
+        zipFile = DOWNLOADPATH + instanceName + ".zip"
+
+        packInfoSearch["selectedVersion"]["configName"] = instanceName
+
         if not os.path.exists(os.path.dirname(zipFile)):
             os.mkdir(os.path.dirname(zipFile))
         url = packInfoSearch["selectedVersion"]["downloadUrl"]
@@ -360,40 +383,42 @@ def install(args):
 
         with open(DOWNLOADPATH + ".packinfo") as packInfoFile:
             packInfo = json.load(packInfoFile)
-        
-        minecraftVersionName = packInfo["selectedVersion"]["minecraftVersionName"]
-        modloader = packInfo["selectedVersion"]["modloader"]
 
-        versionNumberString = ""
-        for i in range(0, 3): # a mc version consits out of 3 numbers
-            if len(minecraftVersionName.split(".")) > i: # I don't really know, how curseforge handels 1.8 (1.8 or 1.8.0). Therefore I am going safe and check, if it has that much numbers. If not, just place "000"
-                versionNumberString += minecraftVersionName.split(".")[i].zfill(3)
-            else:
-                versionNumberString += "000"
-        versionNumber = int(versionNumberString)
-        print()
-        if AUTOMATICVERSION[modloader]["only"].__contains__(versionNumber) or (len(AUTOMATICVERSION[modloader]["only"]) == 0 and \
-            versionNumber <= AUTOMATICVERSION[modloader]["max"] and \
-            versionNumber >= AUTOMATICVERSION[modloader]["min"] and \
-            not AUTOMATICVERSION[modloader]["not"].__contains__(versionNumber)):
-            manual = False
-        else:
-            manual = True
-        
         clearConsole()
-        print(f"Opening Installer: Zipfile = {zipFile}, manual = {manual}")
+        print(f"Opening Installer: Zipfile = {zipFile}")
+        configName = packInfo["selectedVersion"]["configName"]
         try:
-            os.chdir(os.path.dirname(__file__))
-            installScript.main(zipFile, manual)
-            print(Format.format("Finished! Press [return] to return to menu!", Format.GREEN))
-            input()
-            os.replace(DOWNLOADPATH + ".packinfo", PACKSPATH + zipFile[:-4].split("/")[-1] + "/.packinfo")
-            cleanUp()
+            try:
+                os.chdir(os.path.dirname(__file__))
+                installScript.main(zipFile, manual = False, user_mcdir = MINECRAFTPATH)
+
+            except Exception as e:
+                print(Format.format("Errorcode: " + str(e), Format.ORANGE))
+                print(Format.format(f"Falling back to manual Installer...", Format.RED))
+
+                os.chdir(os.path.dirname(__file__))
+                installScript.main(zipFile, manual = True, user_mcdir = MINECRAFTPATH)
+
         except Exception as e: # I think I should leave it here
             cleanUp({"returnToMenu": False})
-            cmd = "\'python3 " + os.path.dirname(__file__) + "install.py \"" + zipFile + "\" --manual\'" if manual else "\"\'"
+            cmd = "\'python3 " + os.path.dirname(__file__) + "/install.py \"" + zipFile + "\" --manual\'"
             print(Format.format(f"Error in installer! Try running {cmd} in your console and check the output!", Format.RED))
+            os.chdir(os.path.dirname(__file__))
+            installScript.main(zipFile, manual = True, user_mcdir = MINECRAFTPATH)
             quit({"message": Format.format("Errorcode: " + str(e), Format.ORANGE), "clearConsole": False})
+
+        if PACKSPATH != os.path.dirname(__file__) + "/packs/":
+            with open(MINECRAFTPATH + 'launcher_profiles.json', 'r') as f: # patching launcher_profiles.json
+                launcher_profiles = json.load(f)
+            launcher_profiles['profiles'][configName]["gameDir"] = PACKSPATH + configName
+            with open(MINECRAFTPATH + 'launcher_profiles.json', 'w') as f:
+                json.dump(launcher_profiles, f, indent=2)
+            os.replace(os.path.dirname(__file__) + "/packs/" + configName, PACKSPATH + configName) # moving instance dir to new location
+        os.replace(DOWNLOADPATH + ".packinfo", PACKSPATH + configName + "/.packinfo")
+
+        print(Format.format("Finished! Press [return] to return to menu!", Format.GREEN))
+        input()
+        cleanUp()
         
 def delete(args):
     instance = args["instance"]
@@ -403,10 +428,32 @@ def delete(args):
         deleteMenu.addItem("Yes", delete, {"path": args["path"],"instance": instance, "confirmed": True})
         deleteMenu.show()
     elif "confirmed" in args and args["confirmed"]:
+        print("Deleting launcher profile... ", end="", flush=True)
+        configName = ""
+        if os.path.exists(PACKSPATH + instance + "/.packinfo"):
+            with open(PACKSPATH + instance + "/.packinfo") as packInfoFile:
+                packInfo = json.load(packInfoFile)
+            if "selectedVersion" in packInfo and "configName" in packInfo["selectedVersion"]:
+                configName = packInfo["selectedVersion"]["configName"]
+            else:
+                print("Could not find a profile name!")
+
+        if os.path.exists(MINECRAFTPATH + 'launcher_profiles.json') and configName != "":
+            with open(MINECRAFTPATH + 'launcher_profiles.json', 'r') as f:
+                launcher_profiles = json.load(f)
+            if configName in launcher_profiles['profiles']:
+                del launcher_profiles['profiles'][configName]
+            with open(MINECRAFTPATH + 'launcher_profiles.json', 'w') as f:
+                json.dump(launcher_profiles, f, indent=2)
+            print("Done!")
+        else:
+            print("Could not remove profile name!")
+
         print(f"Deleting instance '{instance}'...")
         shutil.rmtree(PACKSPATH + instance)
         print("Done!")
-        time.sleep(1)
+        print(Format.format("Press [return] to return to menu", Format.CYAN))
+        input()
         if (not "return" in args) or ("return" in args and args["return"] == False):
             main()
 
@@ -421,7 +468,7 @@ def reset(args):
         if not os.path.exists(PACKSPATH + instance + "/.packinfo"):
             notfoundMenu = MenuHelper(f"Packinfo file not found! How do you want to proceed?")
             notfoundMenu.addItem("delete instance and download it from search", reset, {"path": args["path"], "instance": instance, "confirmed": True, "toDownload": True})
-            notfoundMenu.addItem("only delete", delete, {"path": args["path"]})
+            notfoundMenu.addItem("only delete", delete, {"path": args["path"], "instance":instance})
             notfoundMenu.addItem("abort", main, {"path": args["path"]})
             notfoundMenu.show()
         
@@ -441,8 +488,100 @@ def reset(args):
         
         install({"path": args["path"], "source": "local", "zip": zipFile})
     elif "confirmed" in args and args["confirmed"] == True and "toDownload" in args and args["toDownload"] == True:
-        delete({"path": args["path"], "instance": instance, "mode": "delete", "return": True})
-        install({"path": args["path"], "source": "download"})
+        delete({"path": args["path"], "instance": instance, "confirmed": True, "return": True})
+        install({"path": args["path"], "source": "web"})
+
+def settings(args):
+
+    global NOCOLORS
+    global MINECRAFTPATH
+    global DOWNLOADPATH
+    global PACKSPATH
+    global NEWINSTANCENAME
+
+    select = args["select"] if "select" in args else ""
+
+    if select == "color":
+        NOCOLORS = not NOCOLORS
+        main({"path": args["path"]})
+
+    elif select == "minecraftpath":
+        clearConsole()
+        print(Format.underlinedString("Change default mineraft directory"))
+        print("This directory is used to directly inject newly created minecraft modpack instances in your minecraft launcher.")
+        print(f"Your current minecraft directory is: {MINECRAFTPATH}")
+        while True:
+            print("Please paste your path to your minecraft directory (q to quit): ")
+            mcdir = input()
+            if mcdir == "q":
+                break
+            if not os.path.exists(mcdir):
+                print(Format.format("Your specified directory doesn't exsit. Please try again!", Format.RED))
+            else:
+                MINECRAFTPATH = mcdir if mcdir[-1] == "/" else mcdir + "/"
+                break
+
+    elif select == "downloadpath":
+        clearConsole()
+        print(Format.underlinedString("Change default cache directory"))
+        print("This directory is used to temporarily store all downloaded files.")
+        print(f"Your current cache directory is: {DOWNLOADPATH}")
+        while True:
+            print("Please paste the new path to your desired cache directory (q to quit): ")
+            cachedir = input()
+            cachedir = cachedir if cachedir[-1] == "/" else cachedir + "/"
+            if cachedir == "q/":
+                break
+            else:
+                DOWNLOADPATH = cachedir
+
+    elif select == "packspath":
+        clearConsole()
+        print(Format.underlinedString("Change default packs directory"))
+        print("This directory is used to store all your modpack instances")
+        print(Format.format("Be aware that the global directory is not affected by this setting. \n All symlinks are left intact!", Format.ORANGE))
+        print(f"Your current packs directory is: {PACKSPATH}")
+        while True:
+            print("Please paste your new path to your packs directory (q to quit): ")
+            packsdir = input()
+            packsdir = packsdir if packsdir[-1] == "/" else packsdir + "/"
+            if packsdir == "q/":
+                break
+            if not os.path.exists(packsdir):
+                print(Format.format("Your specified directory doesn't exsit. Please try again!", Format.RED))
+            else:
+                PACKSPATH = packsdir
+                break
+
+    elif select == "newinstancename":
+        clearConsole()
+        print(Format.underlinedString("Change name of new instances"))
+        print("You can use certain variables in your names. To escape those you need to set them in curly brackets.\n")
+        print("Variables".ljust(25) + "│" + "Description".ljust(50))
+        print("─" * 25 + "┼" + "─" * 55)
+        for var in NEWINSTANCENAMEVARDESC:
+            print(var.ljust(25) + "│" + NEWINSTANCENAMEVARDESC[var].ljust(50))
+        print(f"\nYour current name for new instances is: {NEWINSTANCENAME}")
+        while True:
+            print("Please write your new template for new instances (q to quit): ")
+            newinstancename = input()
+            if newinstancename == "q":
+                break
+            else:
+                NEWINSTANCENAME = newinstancename
+                break
+    elif select == "about":
+        clearConsole()
+        print(Format.underlinedString("about"))
+        print("Launcher for modpack installer by cdbbnnyCode")
+        print("projectpage: https://github.com/cdbbnnyCode/modpack-installer")
+        print("")
+        print("Press any button to return")
+        input()
+
+
+    main({"path": args["path"]})
+
 
 def cleanUp(args = {}):
     
@@ -465,7 +604,6 @@ def cleanUp(args = {}):
     main({"path": args["path"]})
 
 ################################################################################################################################################
-# this is the main function to manage the navigation
 # separator constants:
 PATHSEPARATOR = "%" # is used to get navigation path for example to serve the "back"-function
 
@@ -476,6 +614,18 @@ NEWINSTANCENAME = "{ModpackVersionName}" #
 # available variables: ModpackName, ModpackId, ModpackVersionName, MinecraftVersionName, ModpackVersionId, Modloader, NowTime (Format: hhmmss), NowDateUS (Format: MMDDYY), NowDate (Format: DDMMYY) 
 # TODO: more arguments (around line: 288)
 # The Instance-Name gets transfered, if modpack is reset. Therefore if you use date and time vars it will NOT get updated (could be implemented, important credentials could be saved in .packinfo)
+NEWINSTANCENAMEVARDESC = {
+    "ModpackName": "name of modpack",
+    "ModpackId": "id given by curseforge for whole modpack",
+    "ModpackVersionName": "name and version of modpack as human readable",
+    "MinecraftVersionName": "name of Minecraft version",
+    "ModpackVersionId": "id given by curseforge for modpack version",
+    "Modloader": "used modloader",
+    "NowTime": "time of downloading (Format: hhmmss)",
+    "NowDateUS": "date of downloading (Format: MMDDYY)",
+    "NowDate": "date of downloading (Format: DDMMYY)"
+    }
+MINECRAFTPATH = os.getenv('HOME') + '/.minecraft/'
 
 # download constants
 BASEURL = "https://addons-ecs.forgesvc.net/api/v2/addon/" # curseforge API
@@ -483,26 +633,22 @@ AGENT = "Mozilla/5.0 (Windows NT 6.1; Win64; x64) AppleWebKit/537.36 (KHTML, lik
 HEADER = {"User-Agent": AGENT}
 
 # launch constants
-AUTOMATICVERSION = {"Forge": {"min": 00000000, "max": 100100100, "not": [], "only": [1012002]}, "Fabric": {"min": 00000000, "max": 100100100, "not": [], "only": []}} # seems a bit overkill, but now it can be precisely determined, wich version is supported.
-    # it uses a special formating: Minecraft version aaa.bbb.ccc = aaabbbccc, 1.12.2 -> 001012002 or 1012002
-    # if not/only is empty, it will be ignored
-    # min/max specifies min/max version, wich could be automatically installed
-    # every version is supported: {"min": 00000000, "max": 100100100, "not": [], "only": []}
-    # only 1.12.2 is supported: {"min": 00000000, "max": 100100100, "not": [], "only": [1012002]}
-    # version 1.12 - 1.12.2 is supported: {"min": 1012000, "max": 1012002, "not": [], "only": []}
-LAUNCHERCOMMAND = 'minecraft-launcher --workDir "{PathToInstance}/.minecraft"' # command to call minecraft client
+# OLD: LAUNCHERCOMMAND = 'minecraft-launcher --workDir "{PathToInstance}/.minecraft"' # command to call minecraft client
+LAUNCHERCOMMAND = 'minecraft-launcher -c "{configName}"'
 
 # misc
 CLEANUPFILES = True
-NOCOLORS = None # None = listen to command line argument, default False; False/True overwrites command line argument
+NOCOLORS = True # None = listen to command line argument, default False; False/True overwrites command line argument
+PROFILEFILE = ".launcher_profile" # stores the name of the file used to save all settings from launcher
 ################################################################################################################################################
+# this is the main function to manage the navigation
 def main(args = {}):
     if not "path" in args:
         args["path"] = "home"
     splitPath = args["path"].split(PATHSEPARATOR)
 
     if splitPath[-1] == "selector":
-        selectorMenu = MenuHelper("Launch instances")
+        selectorMenu = MenuHelper("library")
         selectorMenu.addItems([f for f in os.listdir(PACKSPATH) if not f.startswith('.')], main, {"path": args["path"] + PATHSEPARATOR + "launch{NAME}"})
         selectorMenu.addItem("back", main, {"path": PATHSEPARATOR.join(splitPath[:-1])})
         selectorMenu.show()
@@ -524,19 +670,56 @@ def main(args = {}):
         installMenu.addItem("back", main, {"path": PATHSEPARATOR.join(splitPath[:-1])})
         installMenu.show()
 
+    elif splitPath[-1] == "settings":
+        settingsMenu = MenuHelper("Settings")
+        settingsMenu.addItem(f"color in menus: {not NOCOLORS}", settings, {"path": args["path"], "select" : "color"})
+        settingsMenu.addItem(f"minecraft directory: {MINECRAFTPATH}", settings, {"path": args["path"], "select" : "minecraftpath"})
+        settingsMenu.addItem(f"name of new instances: {NEWINSTANCENAME.replace('{', '{{').replace('}', '}}')}", settings, {"path": args["path"], "select" : "newinstancename"})
+        settingsMenu.addItem(f"cache directory: {DOWNLOADPATH}", settings, {"path": args["path"], "select" : "downloadpath"})
+        settingsMenu.addItem(f"packs directory: {PACKSPATH}", settings, {"path": args["path"], "select" : "packspath"})
+        settingsMenu.addItem(f"about", settings, {"path": args["path"], "select" : "about"})
+        settingsMenu.addItem("back", main, {"path": PATHSEPARATOR.join(splitPath[:-1])})
+        settingsMenu.show()
+
     else:
-        mainMenu = MenuHelper("Launcher Tool for CurseForge Modpack Installer from cdbbnny")
-        mainMenu.addItem("launch", main, {"path": args["path"] + PATHSEPARATOR + "selector"})
-        mainMenu.addItem("install",main, {"path": args["path"] + PATHSEPARATOR + "install"})
+        mainMenu = MenuHelper("Launcher Tool for CurseForge Modpack Installer by cdbbnny")
+        mainMenu.addItem("library", main, {"path": args["path"] + PATHSEPARATOR + "selector"})
+        mainMenu.addItem("install", main, {"path": args["path"] + PATHSEPARATOR + "install"})
+        mainMenu.addItem("settings", main, {"path": args["path"] + PATHSEPARATOR + "settings"})
         mainMenu.addItem("quit",quit)
         mainMenu.show()
-    print(Format.format("You shouldn't be here!", Format.RED))
 
 ################################################################################################################################################
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.add_argument("-nc", "--no-colors", "--no-colours",help="Deactivate colorful output" ,action='store_const', const=True, default=False)
+    # load launcher profile
+    if os.path.exists(PROFILEFILE):
+        with open(PROFILEFILE, 'r') as f:
+            profile = json.load(f)
+        NEWINSTANCENAME = profile["newinstancename"] if "newinstancename" in profile else NEWINSTANCENAME
+        MINECRAFTPATH = profile["minecraftpath"] if "minecraftpath" in profile else MINECRAFTPATH
+        DOWNLOADPATH = profile["downloadpath"] if "downloadpath" in profile else DOWNLOADPATH
+        PACKSPATH = profile["packspath"] if "packspath" in profile else PACKSPATH
+        NOCOLORS = profile["nocolors"] if "nocolors" in profile else NOCOLORS
+    # parse arguments
+    parser = argparse.ArgumentParser(description="Command line parameters change the settings persistently!")
+    parser.add_argument("-nc", "--no-colors", "--no-colours",help = "Deactivate colorful output" ,action = 'store_const', const = True, default = NOCOLORS)
+    parser.add_argument("--packs-dir", help = "Set custom packs directory", action = 'store', default = PACKSPATH)
+    parser.add_argument("--cache-dir", help = "Set custom cache directory", action = 'store', default = DOWNLOADPATH)
+    parser.add_argument("--new-instance-name-template" ,help = "Set a custom template for newly created instances. See settings in menu for more information" ,action = 'store', default = NEWINSTANCENAME)
+    parser.add_argument("--minecraft-dir", help = "Set custom minecraft directory", action = 'store', default = MINECRAFTPATH)
+    parser.add_argument("--profile-file", help = "Set custom profile file used to store launcher settings", action = 'store', default = PROFILEFILE)
     commandlineArgs = parser.parse_args()
-    if NOCOLORS == None:
-        NOCOLORS = commandlineArgs.no_colors
+
+    NEWINSTANCENAME = commandlineArgs.new_instance_name_template
+    MINECRAFTPATH = commandlineArgs.minecraft_dir if commandlineArgs.minecraft_dir[-1] == "/" else commandlineArgs.minecraft_dir + "/"
+    DOWNLOADPATH = commandlineArgs.cache_dir if commandlineArgs.cache_dir[-1] == "/" else commandlineArgs.cache_dir + "/"
+    PACKSPATH = commandlineArgs.packs_dir if commandlineArgs.packs_dir[-1] == "/" else commandlineArgs.packs_dir + "/"
+    NOCOLORS = commandlineArgs.no_colors
+
+    if not os.path.exists(PACKSPATH):
+        os.makedirs(PACKSPATH, exist_ok=True)
+    if not os.path.exists(MINECRAFTPATH + 'launcher_profiles.json'):
+        print(Format.format(f"Your specefied minecraft directory does not exist or is not a minecraft directory: {MINECRAFTPATH}", Format.ORANGE))
+        print(Format.format("Consider changing it in the settings! Press [return] to continue!", Format.ORANGE))
+        input()
     cleanUp({"path":"home"}) # sarts main function
