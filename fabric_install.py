@@ -1,5 +1,6 @@
 import os
 import json
+import sys
 import requests
 import subprocess
 from util import *
@@ -42,21 +43,16 @@ def main(manifest, mcver, mlver, packname, mc_dir, manual):
 
     if manual:
         # I guess they want manual mode for some reason
+        print("Using the manual installer!")
+        print("***** NEW: INSTALL TO THE MAIN .MINECRAFT DIRECTORY *****")
+        print("*****   (Just hit 'OK' with the default settings)   *****")
         subprocess.run(['java', '-jar', outpath])
     else:
         subprocess.run(args)
 
-    with open(mc_dir + '/launcher_profiles.json', 'r') as f:
-        launcher_profiles = json.load(f)
-
-    # rename the profile (cosmetic)
-    profile_name = 'fabric-loader-%s' % mcver
-
-    if not profile_name in launcher_profiles['profiles']:
-        print("ERROR: Fabric did not install correctly!")
+    if not os.path.exists(mc_dir + '/versions/' + get_version_id(mcver, mlver)):
+        print("Forge installation failed.")
         sys.exit(3)
 
-    rename_profile(launcher_profiles, profile_name, packname)
-
-    with open(mc_dir + '/launcher_profiles.json', 'w') as f:
-        json.dump(launcher_profiles, f)
+def get_version_id(mcver, mlver):
+    return 'fabric-loader-%s-%s' % (mlver, mcver)

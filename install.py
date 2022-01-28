@@ -23,7 +23,13 @@ from zipfile import ZipFile
 def start_launcher(mc_dir):
     subprocess.run(['minecraft-launcher', '--workDir', os.path.abspath(mc_dir)])
 
-def main(zipfile, manual=False):
+def get_user_mcdir():
+    return os.getenv('HOME') + '/.minecraft'
+
+def main(zipfile, user_mcdir=None, manual=False):
+    if user_mcdir is None:
+        user_mcdir = get_user_mcdir()
+
     # Extract pack
     packname = os.path.splitext(zipfile)[0]
     packname = os.path.basename(packname)
@@ -64,26 +70,6 @@ def main(zipfile, manual=False):
         os.symlink(os.path.abspath('global/shaderpacks'), mc_dir + '/shaderpacks', True)
         os.symlink(os.path.abspath('global/assets'), mc_dir + '/assets', True)
 
-        print("Creating launcher profiles")
-        launcher_profiles = {
-            "profiles": {},
-            "settings": {
-                "crashAssistance": True,
-                "enableAdvanced": False,
-                "enableAnalytics": False,
-                "enableHistorical": False,
-                "enableReleases": True,
-                "enableSnapshots": False,
-                "keepLauncherOpen": True,
-                "profileSorting": "ByLastPlayed",
-                "showGameLog": False,
-                "showMenu": False,
-                "soundOn": False
-            }
-        }
-        with open(mc_dir + '/launcher_profiles.json', 'w') as f:
-            json.dump(launcher_profiles, f)
-
     # Install Forge
     print("Installing modloader")
     try:
@@ -103,8 +89,8 @@ def main(zipfile, manual=False):
     # * minecraft directory
     # * manual flag: run automatically or show GUI
     modloaders = {
-        'forge': forge_install.main,
-        'fabric': fabric_install.main
+        'forge': forge_install,
+        'fabric': fabric_install
     }
 
     # I have not yet seen a modpack that has multiple modloaders
@@ -122,7 +108,32 @@ def main(zipfile, manual=False):
         print("Currently, the only supported modloaders are %s" % modloaders)
         return
 
-    modloaders[modloader](manifest, mcver, mlver, packname, mc_dir, manual)
+    print("Updating user launcher profiles")
+
+    # user_mcdir = get_user_mcdir()
+    with open(user_mcdir + '/launcher_profiles.json', 'r') as f:
+        launcher_profiles = json.load(f)
+
+    # add/overwrite the profile
+    # TODO: add options for maximum memory
+    # or config file for the java argument string
+    ml_version_id = modloaders[modloader].get_version_id(mcver, mlver)
+    launcher_profiles['profiles'][packname] = {
+        "icon": "Chest",
+        "javaArgs": "-Xmx4G -XX:+UnlockExperimentalVMOptions -XX:+UseG1GC -XX:G1NewSizePercent=20 -XX:G1ReservePercent=20 -XX:MaxGCPauseMillis=50 -XX:G1HeapRegionSize=32M",
+        "lastVersionId": ml_version_id,
+        "name": packname.replace('+', ' '),
+        "gameDir": os.path.abspath(mc_dir),
+        "type": "custom"
+    }
+    
+    with open(user_mcdir + '/launcher_profiles.json', 'w') as f:
+        json.dump(launcher_profiles, f, indent=2)
+
+    if not os.path.exists(user_mcdir + '/versions/' + ml_version_id):
+        modloaders[modloader].main(manifest, mcver, mlver, packname, user_mcdir, manual)
+    else:
+        print("[modloader already installed]")
 
     # Download mods
     if not os.path.exists(mc_dir + '/.mod_success'):
@@ -165,7 +176,7 @@ def main(zipfile, manual=False):
                         shutil.copyfile(f, mc_dir + '/resources/' + dir)
                 shutil.rmtree(texpack_dir)
             else:
-                print("Illegal type %s" % type)
+                print("Unknown file type %s" % type)
                 sys.exit(1)
 
     # Create success marker
@@ -184,13 +195,13 @@ def main(zipfile, manual=False):
     print()
     print()
     print()
-    print("To launch your new modpack, use:")
-    print("  cd %s" % (mc_dir[:-11]))
-    print("  minecraft-launcher --workDir $(realpath .minecraft)")
+    print("To launch your new modpack, just open the Minecraft launcher normally.")
+    print("The modpack will be available in your installations list.")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('zipfile')
     parser.add_argument('--manual', dest='forge_disable', action='store_true')
+    parser.add_argument('--mcdir', dest='mcdir')
     args = parser.parse_args(sys.argv[1:])
-    main(args.zipfile, args.forge_disable)
+    main(args.zipfile, args.mcdir, args.forge_disable)
