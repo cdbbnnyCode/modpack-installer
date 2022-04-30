@@ -419,7 +419,23 @@ def install(args):
         print(Format.format("Finished! Press [return] to return to menu!", Format.GREEN))
         input()
         cleanUp()
-        
+
+def update(args):
+    instance = args["instance"]
+    if os.path.exists(PACKSPATH + instance + "/.packinfo"):
+            with open(PACKSPATH + instance + "/.packinfo") as packInfoFile:
+                packInfo = json.load(packInfoFile)
+            modpackId = packInfo["modpackId"]
+            delete({"path": args["path"], "instance": instance, "confirmed": True, "return": True})
+            install({"path": args["path"], "source": "web", "selectedPack": modpackId})
+    else:
+        notfoundMenu = MenuHelper(f"Packinfo file not found! How do you want to proceed?")
+        notfoundMenu.addItem("delete instance and download it from search", reset, {"path": args["path"], "instance": instance, "confirmed": True, "toDownload": True})
+        notfoundMenu.addItem("only delete", delete, {"path": args["path"], "instance":instance})
+        notfoundMenu.addItem("abort", main, {"path": args["path"]})
+        notfoundMenu.show()
+
+
 def delete(args):
     instance = args["instance"]
     if not "confirmed" in args:
@@ -509,7 +525,9 @@ def settings(args):
         clearConsole()
         print(Format.underlinedString("Change default mineraft directory"))
         print("This directory is used to directly inject newly created minecraft modpack instances in your minecraft launcher.")
+        print("")
         print(f"Your current minecraft directory is: {MINECRAFTPATH}")
+        print("")
         while True:
             print("Please paste your path to your minecraft directory (q to quit): ")
             mcdir = input()
@@ -525,7 +543,9 @@ def settings(args):
         clearConsole()
         print(Format.underlinedString("Change default cache directory"))
         print("This directory is used to temporarily store all downloaded files.")
+        print("")
         print(f"Your current cache directory is: {DOWNLOADPATH}")
+        print("")
         while True:
             print("Please paste the new path to your desired cache directory (q to quit): ")
             cachedir = input()
@@ -540,7 +560,9 @@ def settings(args):
         print(Format.underlinedString("Change default packs directory"))
         print("This directory is used to store all your modpack instances")
         print(Format.format("Be aware that the global directory is not affected by this setting. \n All symlinks are left intact!", Format.ORANGE))
+        print("")
         print(f"Your current packs directory is: {PACKSPATH}")
+        print("")
         while True:
             print("Please paste your new path to your packs directory (q to quit): ")
             packsdir = input()
@@ -556,12 +578,16 @@ def settings(args):
     elif select == "newinstancename":
         clearConsole()
         print(Format.underlinedString("Change name of new instances"))
-        print("You can use certain variables in your names. To escape those you need to set them in curly brackets.\n")
+        print("")
+        print("You can use certain variables in your names. To escape those you need to set them in curly brackets.")
+        print("")
         print("Variables".ljust(25) + "│" + "Description".ljust(50))
         print("─" * 25 + "┼" + "─" * 55)
         for var in NEWINSTANCENAMEVARDESC:
             print(var.ljust(25) + "│" + NEWINSTANCENAMEVARDESC[var].ljust(50))
+        print("")
         print(f"\nYour current name for new instances is: {NEWINSTANCENAME}")
+        print("")
         while True:
             print("Please write your new template for new instances (q to quit): ")
             newinstancename = input()
@@ -570,6 +596,7 @@ def settings(args):
             else:
                 NEWINSTANCENAME = newinstancename
                 break
+
     elif select == "about":
         clearConsole()
         print(Format.underlinedString("about"))
@@ -638,7 +665,7 @@ LAUNCHERCOMMAND = 'minecraft-launcher -c "{configName}"'
 
 # misc
 CLEANUPFILES = True
-NOCOLORS = True # None = listen to command line argument, default False; False/True overwrites command line argument
+NOCOLORS = False # None = listen to command line argument, default False; False/True overwrites command line argument
 PROFILEFILE = ".launcher_profile" # stores the name of the file used to save all settings from launcher
 ################################################################################################################################################
 # this is the main function to manage the navigation
@@ -658,6 +685,7 @@ def main(args = {}):
             quit({"message": Format.format("Error in Code: No launch path in menu specified!", Format.RED)})
         launchMenu = MenuHelper(splitPath[-1][6:])
         launchMenu.addItem("launch instance", launch, {"path": args["path"], "instance": "{CAP}"})
+        launchMenu.addItem("update instance", update, {"path": args["path"], "instance": "{CAP}"})
         launchMenu.addItem("reset instance", reset, {"path": args["path"], "instance": "{CAP}"})
         launchMenu.addItem("delete instance", delete, {"path": args["path"], "instance": "{CAP}"})
         launchMenu.addItem("back", main, {"path": PATHSEPARATOR.join(splitPath[:-1])})
