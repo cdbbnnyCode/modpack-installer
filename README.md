@@ -1,5 +1,11 @@
 ## CurseForge Modpack Installer  
 ###### V2.2.1-beta
+
+**UPDATE (May 29 2022) - CurseForge has updated their API to require a key to access.**
+I am trying to get official access, but while that waits, the program will NOT be able
+to download mods. If I do not get any response from CurseForge soon, I may implement a
+temporary solution.
+
 This command-line tool allows easy installation of CurseForge modpacks on Linux
 systems. It installs each modpack in a semi-isolated environment, which prevents
 them from modifying important settings and data in your main Minecraft installation.
