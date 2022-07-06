@@ -1,19 +1,21 @@
 ## CurseForge Modpack Installer  
-###### V2.2.1-beta
-
-**UPDATE (May 29 2022) - CurseForge has updated their API to require a key to access.**
-I am trying to get official access, but while that waits, the program will NOT be able
-to download mods. If I do not get any response from CurseForge soon, I may implement a
-temporary solution.
+###### V2.3.0
 
 This command-line tool allows easy installation of CurseForge modpacks on Linux
 systems. It installs each modpack in a semi-isolated environment, which prevents
 them from modifying important settings and data in your main Minecraft installation.
 
-This project is currently in beta and may be unstable. If you find a bug, please
+This is a small project and may be unstable. If you find a bug, please
 help me out by posting an [issue](https://github.com/cdbbnnyCode/modpack-installer/issues)!
 
-
+**V2.3 update info**: Now uses the *official* CurseForge API. This has some major impacts:
+* API requests are now authenticated with a key, and are now rate-limited on the client side
+  to avoid excessive requests with this project's key.
+  * **NOTE TO DEVELOPERS** - Forks and modifications of this project *must* use a new API key.
+    See [here](https://support.curseforge.com/en/support/solutions/articles/9000208346-about-the-curseforge-api-and-how-to-apply-for-a-key) for details.
+* Some mods now disallow 3rd-party distribution. These mods will be listed in the installer's output
+  and must be downloaded manually from the CurseForge website. (Download URLs are provided directly).
+  While this is tedious, it allows mod creators to always receive ad revenue from the download page.
 
 **V2.2 update info**: After updating to version 2.2, please run the `migrate.py`
 script to create launcher profiles for your modpacks in your main `.minecraft`
@@ -114,8 +116,15 @@ directories.
 ### License
 This project is licensed under the MIT license. See the LICENSE file for details.
 
-
 ### Changelog
+#### v2.3.0 - 2022-07-06
+* Use the officially documented CurseForge API
+  * Add a project-specific API key from CurseForge; derived projects must use a different key!
+  * Add experimental rate-limiting (3 JSON requests per second)
+  * Request the user to manually download files that have the Project Distribution Toggle disabled.
+    The script will directly import these files from the user's download directory.
+* Fix the `status_bar()` function so that the status bar is right-aligned properly
+
 #### v2.2.1-beta - 2022-01-25
 * Fix `ForgeHack` to work with older installer versions (tested on latest major releases down to
   1.7.10).

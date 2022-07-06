@@ -5,17 +5,17 @@ import requests
 import json
 import asyncio
 import time
+from util import download
 from concurrent.futures import ThreadPoolExecutor
 
-api_url = 'https://addons-ecs.forgesvc.net/api/v2'
-files_url = 'https://media.forgecdn.net/files'
+api_url = 'https://api.curseforge.com/v1'
+# NOTE: Modified and/or forked versions of this project must not use this API key.
+# Instead, please apply for a new API key from CurseForge's website.
+api_key = '$2a$10$t2BUHi3wKkiMw1YEqItui.XaHDvw4yMLK2peaKGkI9ufv3IsYRlkW'
 
-def download(session, url, dest):
-    print("Downloading %s" % url)
-    r = session.get(url)
-    with open(dest, 'wb') as f:
-        f.write(r.content)
-    return r.status_code
+# temporary rate limit before CF implements a real one
+api_ratelimit = 3 # JSON requests per second
+req_history = [0, 0] # time, request count so far
 
 def get_json(session, url):
     r = session.get(url)
@@ -23,41 +23,59 @@ def get_json(session, url):
         print("Error %d trying to access %s" % (r.status_code, url))
         print(r.text)
         return None
+
+    req_history[1] += 1
+    while req_history[1] >= api_ratelimit:
+        if time.perf_counter() > req_history[0] + 1:
+            req_history[0] = time.perf_counter()
+            req_history[1] = 0
+            break
+        s_remaining = max(0, req_history[0] + 1 - time.perf_counter())
+        time.sleep(s_remaining)
+
     return json.loads(r.text)
 
 def fetch_mod(session, f, out_dir):
     pid = f['projectID']
     fid = f['fileID']
-    project_info = get_json(session, api_url + ('/addon/%d' % pid))
+    project_info = get_json(session, api_url + ('/mods/%d' % pid))
     if project_info is None:
         print("fetch failed")
         return (f, 'error')
+    project_info = project_info['data']
 
-    # print(project_info['websiteUrl'])
-    file_type = project_info['websiteUrl'].split('/')[4] # mc-mods or texture-packs
-    info = get_json(session, api_url + ('/addon/%d/file/%d' % (pid, fid)))
+    # print(project_info)
+    print(project_info['links']['websiteUrl'])
+    file_type = project_info['links']['websiteUrl'].split('/')[4] # mc-mods or texture-packs
+    info = get_json(session, api_url + ('/mods/%d/files/%d' % (pid, fid)))
     if info is None:
         print("fetch failed")
         return (f, 'error')
+    info = info['data']
 
     fn = info['fileName']
     dl = info['downloadUrl']
     out_file = out_dir + '/' + fn
+
+    if not project_info['allowModDistribution']:
+        print("distribution disabled for this mod")
+        return (f, 'dist-error', project_info, out_file, file_type)
+
     if os.path.exists(out_file):
         if os.path.getsize(out_file) == info['fileLength']:
             print("%s OK" % fn)
             return (out_file, file_type)
     
-    status = download(session, dl, out_file)
+    status = download(dl, out_file, session=session, progress=True)
     if status != 200:
         print("download failed (error %d)" % status)
         return (f, 'error')
     return (out_file, file_type)
 
 async def download_mods_async(manifest, out_dir):
-    with ThreadPoolExecutor(max_workers=4) as executor, \
+    with ThreadPoolExecutor(max_workers=1) as executor, \
             requests.Session() as session:
-        session.headers['User-Agent'] = 'Mozilla/5.0 (X11; Linux x86_64; rv:75.0) Gecko/20100101 Firefox/75.0'
+        session.headers['X-Api-Key'] = api_key
         loop = asyncio.get_event_loop()
         tasks = []
         for f in manifest['files']:
@@ -65,6 +83,7 @@ async def download_mods_async(manifest, out_dir):
             tasks.append(task)
 
         jars = []
+        manual_downloads = []
         while len(tasks) > 0:
             retry_tasks = []
 
@@ -72,6 +91,11 @@ async def download_mods_async(manifest, out_dir):
                 if resp[1] == 'error':
                     print("failed to fetch %s, retrying later" % resp[0])
                     retry_tasks.append(resp[0])
+                elif resp[1] == 'dist-error':
+                    manual_dl_url = resp[2]['links']['websiteUrl'] + '/download/' + str(resp[0]['fileID'])
+                    manual_downloads.append((manual_dl_url, resp))
+                    # add to jars list so that the file gets linked
+                    jars.append(resp[3:])
                 else:
                     jars.append(resp)
 
@@ -81,7 +105,7 @@ async def download_mods_async(manifest, out_dir):
                 time.sleep(2)
             for f in retry_tasks:
                 tasks.append(loop.run_in_executor(executor, fetch_mod, *(session, f, out_dir)))
-        return jars
+        return jars, manual_downloads
 
 
 def main(manifest_json, mods_dir):

@@ -14,15 +14,20 @@ def status_bar(text, progress, bar_width=0.5, show_percent=True, borders='[]', p
     
     progress_c = int(progress * (bar_width_c - 2))
     remaining_c = bar_width_c - 2 - progress_c
+    padding_c = max(0, term_width - bar_width_c - text_width - 6)
 
     bar = borders[0] + progress_ch * progress_c + space_ch * remaining_c + borders[1]
-    print("%s %3.0f%% %s" % (text_part, (progress * 100), bar), end=ansi_el)
+    pad = ' ' * padding_c
+    print("%s %s%3.0f%% %s" % (text_part, pad, (progress * 100), bar), end=ansi_el)
     
-def download(url, dest, progress=False):
+def download(url, dest, progress=False, session=None):
     print("Downloading %s" % url)
 
     try:
-        r = requests.get(url, stream=True)
+        if session is not None:
+            r = session.get(url, stream=True)
+        else:
+            r = requests.get(url, stream=True)
         size = int(r.headers['Content-Length'])
         
         if r.status_code != 200:
@@ -31,7 +36,7 @@ def download(url, dest, progress=False):
         with open(dest, 'wb') as f:
             if progress:
                 n = 0
-                for chunk in r.iter_content(1024):
+                for chunk in r.iter_content(1048576):
                     f.write(chunk)
                     n += len(chunk)
                     status_bar(url, n / size)

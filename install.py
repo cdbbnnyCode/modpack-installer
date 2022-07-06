@@ -148,7 +148,44 @@ def main(zipfile, user_mcdir=None, manual=False):
         #     subprocess.run(['npm', 'install'])
         # subprocess.run(['node', 'mod_download.js', packdata_dir + '/manifest.json', '.modcache', packdata_dir + '/mods.json'])
 
-        mods = mod_download.main(packdata_dir + '/manifest.json', '.modcache')
+        mods, manual_downloads = mod_download.main(packdata_dir + '/manifest.json', '.modcache')
+        if len(manual_downloads) > 0:
+            while True:
+                actual_manual_dls = [] # which ones aren't already downloaded
+                for url, resp in manual_downloads:
+                    outfile = resp[3]
+                    if not os.path.exists(outfile):
+                        actual_manual_dls.append((url, outfile))
+                if len(actual_manual_dls) > 0:
+                    print("====MANUAL DOWNLOAD REQUIRED====")
+                    print("The following mods cannot be downloaded due to the new Project Distribution Toggle.")
+                    print("Please download them manually; the files will be retrieved from your downloads directly.")
+                    for url, outfile in actual_manual_dls:
+                        print("* %s (%s)" % (url, os.path.basename(outfile)))
+                    
+                    # TODO save user's configured downloads folder somewhere
+                    user_downloads_dir = os.environ['HOME'] + '/Downloads'
+                    print("Retrieving downloads from %s - if that isn't your browser's download location, enter" \
+                            % user_downloads_dir)
+                    print("the correct location below. Otherwise, press Enter to continue.")
+                    req_downloads_dir = input()
+
+                    req_downloads_dir = os.path.expanduser(req_downloads_dir)
+                    if len(req_downloads_dir) > 0:
+                        if not os.path.isdir(req_downloads_dir):
+                            print("- input directory is not a directory; ignoring")
+                        else:
+                            user_downloads_dir = req_downloads_dir
+                    print("Finding files in %s..." % user_downloads_dir)
+                    
+                    for url, outfile in actual_manual_dls:
+                        fname = os.path.basename(outfile).replace(' ', '+')
+                        dl_path = user_downloads_dir + '/' + fname
+                        if os.path.exists(dl_path):
+                            print(dl_path)
+                            shutil.move(dl_path, outfile)
+                else:
+                    break
 
         # Link mods
         print("Linking mods")
