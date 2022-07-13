@@ -24,7 +24,50 @@ def start_launcher(mc_dir):
     subprocess.run(['minecraft-launcher', '--workDir', os.path.abspath(mc_dir)])
 
 def get_user_mcdir():
-    return os.getenv('HOME') + '/.minecraft'
+    # get the possibles minecraft home folder
+    possible_homes = (
+        os.getenv('HOME') + '/.minecraft',
+        os.getenv('HOME') + '/.var/app/com.mojang.Minecraft/.minecraft/'
+    ) # TODO: add more possible locations (e.g. snap)
+
+    #remove unexistant paths
+    possible_homes = [h for h in possible_homes if os.path.exists(h)]
+
+    # no minecraft path found, ask the user to insert it
+    if len(possible_homes) == 0:
+        return input("No minecraft installation detected, please instert the .minecraft folder path (ctrl + c to cancel): ")
+
+    # only one possible home has been found, just return it
+    elif len(possible_homes) == 1:
+        return possible_homes[0]
+
+    # check if more than two paths exists, ask for the user which one should be used for install
+    elif len(possible_homes) >= 2:
+        while True:
+            print("Multiple minecraft installations detected:")
+            # print each folder with a number
+            i = 1 # to have more natural numbers, we're starting to 1
+            for home in possible_homes:
+                print(i, "- ", home)
+                i += 1
+
+            #ask the user which one to use
+            home = input("Which minecraft folder should be used: ")
+            
+            # if the user replied with something else than a number print an error and loop back
+            if not home.isdigit():
+                print("Error: the response should be a number!")
+            
+            # if the option doesn't exists, tell the user
+            elif int(home)-1 > len(possible_homes):
+                print("Error: this option doesn't exists!")
+            
+            # everything seems to be ok, returning the associated path
+            else:
+                return possible_homes[int(home)-1]
+            
+
+
 
 def main(zipfile, user_mcdir=None, manual=False):
     if user_mcdir is None:
