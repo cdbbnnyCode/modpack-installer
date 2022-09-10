@@ -6,6 +6,7 @@
 # will then generate a complete Minecraft install directory with all of the
 # mods and overrides installed.
 
+from genericpath import isdir
 import forge_install
 import fabric_install
 import mod_download
@@ -205,13 +206,16 @@ def main(zipfile, user_mcdir=None, manual=False):
                 os.mkdir(texpack_dir)
                 with ZipFile(jar, 'r') as zip:
                     zip.extractall(texpack_dir)
-                for dir in os.listdir(texpack_dir + '/assets'):
-                    f = texpack_dir + '/assets/' + dir
-                    if os.path.isdir(f):
-                        copy_tree(f, mc_dir + '/resources/' + dir)
-                    else:
-                        shutil.copyfile(f, mc_dir + '/resources/' + dir)
-                shutil.rmtree(texpack_dir)
+                if os.path.isdir(texpack_dir + '/assets'): # https://github.com/cdbbnnyCode/modpack-installer/issues/18
+                    for dir in os.listdir(texpack_dir + '/assets'):
+                        f = texpack_dir + '/assets/' + dir
+                        if os.path.isdir(f):
+                            copy_tree(f, mc_dir + '/resources/' + dir)
+                        else:
+                            shutil.copyfile(f, mc_dir + '/resources/' + dir)
+                    shutil.rmtree(texpack_dir)
+                else:
+                    print("Warning: Dir for '{}' does not exist: {}/assets".format(jar, texpack_dir))
             else:
                 print("Unknown file type %s" % type)
                 sys.exit(1)
