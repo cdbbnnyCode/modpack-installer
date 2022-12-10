@@ -1,4 +1,4 @@
-## CurseForge Modpack Installer  
+## Modpack Installer  
 ###### V2.3.0
 
 This command-line tool allows easy installation of CurseForge modpacks on Linux
@@ -115,6 +115,10 @@ directories.
 
 ### License
 This project is licensed under the MIT license. See the LICENSE file for details.
+
+### Disclaimer
+This project is not endorsed by or affiliated with CurseForge, Overwolf, or Microsoft in any way.
+All product and company names are the registered trademarks of their original owners.
 
 ### Changelog
 #### v2.3.0 - 2022-07-06
