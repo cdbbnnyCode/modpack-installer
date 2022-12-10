@@ -46,14 +46,14 @@ pip3 install --user requests
 * Download a modpack and move the zip file into this directory.
 * Open a terminal in this directory and type:
   ```
-  python installer.py <modpack_name.zip>
+  python install.py <modpack_name.zip>
   ```
   replacing `<modpack_name.zip>` with the name of the zip file you just downloaded.
   * If the installer fails to install the modloader automatically,
     delete the modpack directory out of `packs/`
     and run the program with the `--manual` flag:
     ```
-    python installer.py --manual <modpack_name.zip>
+    python install.py --manual <modpack_name.zip>
     ```
     This will open the modloader's install GUI. Point it to your **main**
     `.minecraft` directory (should be default) and click 'Install Client'.
