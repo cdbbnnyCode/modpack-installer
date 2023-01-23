@@ -246,10 +246,10 @@ def main(zipfile, user_mcdir=None, manual=False):
     print("The modpack will be available in your installations list.")
     if has_datapacks:
         print("!!!! THIS MODPACK CONTAINS DATA PACKS !!!!")
-        print("One or more data packs have been included in this modpack. These must be added to each world MANUALLY!")
+        print("When creating a new world, please click the 'Data Packs' button and make sure the installed datapacks are present!")
         print("* Data packs have been stored in: " + os.path.abspath(mc_dir + '/datapacks'))
-        print("* In the 'Create New World' menu, click on 'Data Packs' and drag all of the zip files in this directory" \
-            + " from your file manager into the game window and make sure they are enabled for the world.")
+        print("* If there are no data packs shown, drag all of the zip files from this directory into your game window " \
+              + "and make sure they are enabled for the world.")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
