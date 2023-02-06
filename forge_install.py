@@ -16,22 +16,28 @@ def get_forge_url(mcver, mlver):
     if not os.path.exists(outpath):
         resp = download(index_url, outpath, False)
         if resp != 200:
-            print("Got %d error trying to download index of Forge downloads" % resp)
-            sys.exit(2)
+            print("Got %d error trying to download Forge download index" % resp)
+            return ""
 
     with open(outpath, 'r') as f:
         match = re.search("href=(?:.*url=)?(.*%s.*\.jar)" % mlver, f.read())
         if match:
             url = match.group(1)
         else:
-            print("Could not find Forge version %s for Minecraft version %s" % (mlver, mcver))
-            sys.exit(2)
+            print("Could not find Forge download URL for version %s (Minecraft version %s)" % (mlver, mcver))
+            return ""
 
     return url
 
 def main(manifest, mcver, mlver, packname, mc_dir, manual):
 
     url = get_forge_url(mcver, mlver)
+
+    if not url:
+        print("Guessing Forge download URL")
+        forge_fullver = mcver + '-' + mlver
+        url = 'https://files.minecraftforge.net/maven/net/minecraftforge/forge/%s/forge-%s-installer.jar' % (forge_fullver, forge_fullver)
+
     outpath = '/tmp/%s' % url.split('/')[-1]
 
     if not os.path.exists(outpath):
