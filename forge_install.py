@@ -20,7 +20,12 @@ def get_forge_url(mcver, mlver):
             sys.exit(2)
 
     with open(outpath, 'r') as f:
-        url = re.search("href=(?:.*url=)?(.*%s.*\.jar)" % mlver, f.read()).group(1)
+        match = re.search("href=(?:.*url=)?(.*%s.*\.jar)" % mlver, f.read())
+        if match:
+            url = match.group(1)
+        else:
+            print("Could not find Forge version %s for Minecraft version %s" % (mlver, mcver))
+            sys.exit(2)
 
     return url
 
