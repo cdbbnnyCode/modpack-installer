@@ -1,5 +1,5 @@
 ## Modpack Installer  
-###### V2.3.1
+###### V2.3.2
 
 This command-line tool allows easy installation of CurseForge modpacks on Linux
 systems. It installs each modpack in a semi-isolated environment, which prevents
@@ -121,6 +121,10 @@ This project is not endorsed by or affiliated with CurseForge, Overwolf, or Micr
 All product and company names are the registered trademarks of their original owners.
 
 ### Changelog
+#### v2.3.2 - 2023-02-24
+* Fix crash in the datapack detection logic when the modpack data has already been successfully
+  installed.
+
 #### v2.3.1 - 2023-02-07
 * Detect included datapacks (i.e. for Repurposed Structures) and install them to
   `.minecraft/datapacks`. Some modpacks will find datapacks at this location and will automatically
