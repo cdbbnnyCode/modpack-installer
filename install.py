@@ -228,7 +228,7 @@ def main(zipfile, user_mcdir=None, manual=False):
 
     else: # if mods already downloaded
         # assume there might be datapacks if a datapacks directory exists
-        has_datapacks = os.path.isdir(mc_dir + '/datapacks'):
+        has_datapacks = os.path.isdir(mc_dir + '/datapacks')
 
     # Create success marker (does nothing if it already existed)
     with open(mc_dir + '/.mod_success', 'wb') as f:
