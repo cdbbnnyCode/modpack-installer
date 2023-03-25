@@ -162,6 +162,10 @@ def main(zipfile, user_mcdir=None, manual=False):
                     print("Please download them manually; the files will be retrieved from your downloads directly.")
                     for url, outfile in actual_manual_dls:
                         print("* %s (%s)" % (url, os.path.basename(outfile)))
+
+                    with open("manual_downloads.txt", "w") as f:
+                        for url, _ in acutal_manual_dls:
+                            f.write(url + "\n")
                     
                     # TODO save user's configured downloads folder somewhere
                     user_downloads_dir = os.environ['HOME'] + '/Downloads'
