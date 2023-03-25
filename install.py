@@ -26,7 +26,7 @@ def start_launcher(mc_dir):
 def get_user_mcdir():
     return os.getenv('HOME') + '/.minecraft'
 
-def main(zipfile, user_mcdir=None, manual=False):
+def main(zipfile, user_mcdir=None, manual=False, open_browser=''):
     if user_mcdir is None:
         user_mcdir = get_user_mcdir()
 
@@ -164,9 +164,12 @@ def main(zipfile, user_mcdir=None, manual=False):
                         print("* %s (%s)" % (url, os.path.basename(outfile)))
 
                     with open("manual_downloads.txt", "w") as f:
-                        for url, _ in acutal_manual_dls:
+                        for url, _ in actual_manual_dls:
                             f.write(url + "\n")
-                    
+
+                    if open_browser != '':
+                        subprocess.run("{} $(cat manual_downloads.txt)".format(open_browser))
+
                     # TODO save user's configured downloads folder somewhere
                     user_downloads_dir = os.environ['HOME'] + '/Downloads'
                     print("Retrieving downloads from %s - if that isn't your browser's download location, enter" \
@@ -264,5 +267,9 @@ if __name__ == "__main__":
     parser.add_argument('zipfile')
     parser.add_argument('--manual', dest='forge_disable', action='store_true')
     parser.add_argument('--mcdir', dest='mcdir')
+    parser.add_argument(
+        '-b', '--open-browser', type=str, dest='open_browser', default='',
+        help='the browser to use to open the manual downloads'
+    )
     args = parser.parse_args(sys.argv[1:])
-    main(args.zipfile, args.mcdir, args.forge_disable)
+    main(args.zipfile, args.mcdir, args.forge_disable, args.open_browser)
