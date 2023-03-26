@@ -168,7 +168,7 @@ def main(zipfile, user_mcdir=None, manual=False, open_browser=''):
                             f.write(url + "\n")
 
                     if open_browser != '':
-                        subprocess.run("{} $(cat manual_downloads.txt)".format(open_browser))
+                        subprocess.run("{} $(cat manual_downloads.txt)".format(open_browser), shell=True)
 
                     # TODO save user's configured downloads folder somewhere
                     user_downloads_dir = os.environ['HOME'] + '/Downloads'
