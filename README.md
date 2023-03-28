@@ -1,5 +1,5 @@
-## CurseForge Modpack Installer  
-###### V2.3.0
+## Modpack Installer  
+###### V2.3.2
 
 This command-line tool allows easy installation of CurseForge modpacks on Linux
 systems. It installs each modpack in a semi-isolated environment, which prevents
@@ -46,14 +46,14 @@ pip3 install --user requests
 * Download a modpack and move the zip file into this directory.
 * Open a terminal in this directory and type:
   ```
-  python installer.py <modpack_name.zip>
+  python install.py <modpack_name.zip>
   ```
   replacing `<modpack_name.zip>` with the name of the zip file you just downloaded.
   * If the installer fails to install the modloader automatically,
     delete the modpack directory out of `packs/`
     and run the program with the `--manual` flag:
     ```
-    python installer.py --manual <modpack_name.zip>
+    python install.py --manual <modpack_name.zip>
     ```
     This will open the modloader's install GUI. Point it to your **main**
     `.minecraft` directory (should be default) and click 'Install Client'.
@@ -116,7 +116,22 @@ directories.
 ### License
 This project is licensed under the MIT license. See the LICENSE file for details.
 
+### Disclaimer
+This project is not endorsed by or affiliated with CurseForge, Overwolf, or Microsoft in any way.
+All product and company names are the registered trademarks of their original owners.
+
 ### Changelog
+#### v2.3.2 - 2023-02-24
+* Fix crash in the datapack detection logic when the modpack data has already been successfully
+  installed.
+
+#### v2.3.1 - 2023-02-07
+* Detect included datapacks (i.e. for Repurposed Structures) and install them to
+  `.minecraft/datapacks`. Some modpacks will find datapacks at this location and will automatically
+  include them in new worlds, but this is not vanilla behavior (AFAIK).
+* [Forge] Read the Minecraft Forge download page to determine the file name rather than assuming that
+  it follows a consistent pattern ([#25](https://github.com/cdbbnnyCode/modpack-installer/pull/25)).
+
 #### v2.3.0 - 2022-07-06
 * Use the officially documented CurseForge API
   * Add a project-specific API key from CurseForge; derived projects must use a different key!

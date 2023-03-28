@@ -235,31 +235,45 @@ def main(zipfile, user_mcdir=None, manual=False):
         if not os.path.isdir(mc_dir + '/resources'):
             os.mkdir(mc_dir + '/resources')
 
+        has_datapacks = False
+
         for mod in mods:
             jar = mod[0]
-            type = mod[1]
-            if type == 'mc-mods':
+            ftype = mod[1]
+            if ftype == 'mc-mods':
                 modfile = mc_dir + '/mods/' + os.path.basename(jar)
                 if not os.path.exists(modfile):
                     os.symlink(os.path.abspath(jar), modfile)
-            elif type == 'texture-packs':
+            elif ftype == 'texture-packs':
                 print("Extracting texture pack %s" % jar)
                 texpack_dir = '/tmp/%06d' % random.randint(0, 999999)
                 os.mkdir(texpack_dir)
-                with ZipFile(jar, 'r') as zip:
-                    zip.extractall(texpack_dir)
-                for dir in os.listdir(texpack_dir + '/assets'):
-                    f = texpack_dir + '/assets/' + dir
-                    if os.path.isdir(f):
-                        copy_tree(f, mc_dir + '/resources/' + dir)
-                    else:
-                        shutil.copyfile(f, mc_dir + '/resources/' + dir)
+                with ZipFile(jar, 'r') as zf:
+                    zf.extractall(texpack_dir)
+                if os.path.exists(texpack_dir + '/data'):
+                    # we have a data pack, don't extract it
+                    has_datapacks = True
+                    print("-> is actually data pack, placing into datapacks")
+                    if not os.path.isdir(mc_dir + '/datapacks'):
+                        os.mkdir(mc_dir + '/datapacks')
+                    os.symlink(os.path.abspath(jar), mc_dir + '/datapacks/' + os.path.basename(jar))
+                else:
+                    for dir in os.listdir(texpack_dir + '/assets'):
+                        f = texpack_dir + '/assets/' + dir
+                        if os.path.isdir(f):
+                            copy_tree(f, mc_dir + '/resources/' + dir)
+                        else:
+                            shutil.copyfile(f, mc_dir + '/resources/' + dir)
                 shutil.rmtree(texpack_dir)
             else:
                 print("Unknown file type %s" % type)
                 sys.exit(1)
 
-    # Create success marker
+    else: # if mods already downloaded
+        # assume there might be datapacks if a datapacks directory exists
+        has_datapacks = os.path.isdir(mc_dir + '/datapacks')
+
+    # Create success marker (does nothing if it already existed)
     with open(mc_dir + '/.mod_success', 'wb') as f:
         pass
 
@@ -277,6 +291,12 @@ def main(zipfile, user_mcdir=None, manual=False):
     print()
     print("To launch your new modpack, just open the Minecraft launcher normally.")
     print("The modpack will be available in your installations list.")
+    if has_datapacks:
+        print("!!!! THIS MODPACK CONTAINS DATA PACKS !!!!")
+        print("When creating a new world, please click the 'Data Packs' button and make sure the installed datapacks are present!")
+        print("* Data packs have been stored in: " + os.path.abspath(mc_dir + '/datapacks'))
+        print("* If there are no data packs shown, drag all of the zip files from this directory into your game window " \
+              + "and make sure they are enabled for the world.")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()

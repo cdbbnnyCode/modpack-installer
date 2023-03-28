@@ -1,19 +1,45 @@
 #!/usr/bin/env python3
-import sys
 import os
+import re
 import subprocess
+import sys
 import time
 from util import *
 
 # https://files.minecraftforge.net/maven/net/minecraftforge/forge/1.12.2-14.23.5.2847/forge-1.12.2-14.23.5.2847-universal.jar
 
+def get_forge_url(mcver, mlver):
+    index_url = 'https://files.minecraftforge.net/net/minecraftforge/forge/index_%s.html' \
+            % mcver
+
+    outpath = '/tmp/forge-%s-index.html' % mcver
+    if not os.path.exists(outpath):
+        resp = download(index_url, outpath, False)
+        if resp != 200:
+            print("Got %d error trying to download Forge download index" % resp)
+            return ""
+
+    with open(outpath, 'r') as f:
+        match = re.search("href=(?:.*url=)?(.*%s.*\.jar)" % mlver, f.read())
+        if match:
+            url = match.group(1)
+        else:
+            print("Could not find Forge download URL for version %s (Minecraft version %s)" % (mlver, mcver))
+            return ""
+
+    return url
 
 def main(manifest, mcver, mlver, packname, mc_dir, manual):
 
-    forge_fullver = mcver + '-' + mlver
-    url = 'https://files.minecraftforge.net/maven/net/minecraftforge/forge/%s/forge-%s-installer.jar' \
-            % (forge_fullver, forge_fullver)
-    outpath = '/tmp/forge-%s-installer.jar' % forge_fullver
+    url = get_forge_url(mcver, mlver)
+
+    if not url:
+        print("Guessing Forge download URL")
+        forge_fullver = mcver + '-' + mlver
+        url = 'https://files.minecraftforge.net/maven/net/minecraftforge/forge/%s/forge-%s-installer.jar' % (forge_fullver, forge_fullver)
+
+    outpath = '/tmp/%s' % url.split('/')[-1]
+
     if not os.path.exists(outpath):
         resp = download(url, outpath, True)
         if resp != 200:
