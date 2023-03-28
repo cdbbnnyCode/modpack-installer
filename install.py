@@ -19,6 +19,7 @@ import shutil
 import argparse
 from distutils.dir_util import copy_tree
 from zipfile import ZipFile
+from util import get_user_preference, set_user_preference
 
 def start_launcher(mc_dir):
     subprocess.run(['minecraft-launcher', '--workDir', os.path.abspath(mc_dir)])
@@ -69,10 +70,31 @@ def get_user_mcdir():
 
 
 
-def main(zipfile, user_mcdir=None, manual=False):
-    if user_mcdir is None:
-        user_mcdir = get_user_mcdir()
+def main(zipfile, user_mcdir=None, manual=False, automated=False):
 
+    # check which minecraft folder to use
+    if user_mcdir is None:
+        # load the user preferences file
+        user_mcdir = get_user_preference("minecraft_dir")
+
+        # if the user didn't specify a minecraft folder, ask for it
+        if user_mcdir is None:
+            user_mcdir = get_user_mcdir()
+
+
+    # check if the user wants to save the path as default if it's different from the one in the preferences
+    if user_mcdir != get_user_preference("minecraft_dir") and not automated:
+        #ask the user if he wants to save the path as default
+        print("Changes detected in the minecraft folder path. \n OLD: %s\n NEW: %s" % (get_user_preference("minecraft_dir"), user_mcdir))
+        update_preferences = input("would you like to save this new path as default? (Y/n) ")
+
+        # if the user wants to save the path as default, save it
+        if update_preferences.lower().startswith("y") or update_preferences == "":
+            set_user_preference("minecraft_dir", user_mcdir)
+            print("Preferences updated! You can change them with the --mcdir option.")
+        else:
+            print("Okay, no updates were made.")
+    
     # Extract pack
     packname = os.path.splitext(zipfile)[0]
     packname = os.path.basename(packname)
@@ -301,7 +323,8 @@ def main(zipfile, user_mcdir=None, manual=False):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('zipfile')
-    parser.add_argument('--manual', dest='forge_disable', action='store_true')
-    parser.add_argument('--mcdir', dest='mcdir')
+    parser.add_argument('--manual', dest='forge_disable', action='store_true'),
+    parser.add_argument('--mcdir', dest='mcdir', help="Minecraft directory, overrides stored preferences")
+    parser.add_argument('--automated', dest='automated', action='store_true', help="Intended for use by other scripts, limit blocking prompts")
     args = parser.parse_args(sys.argv[1:])
-    main(args.zipfile, args.mcdir, args.forge_disable)
+    main(args.zipfile, user_mcdir=args.mcdir, manual=args.forge_disable, automated=args.automated)
