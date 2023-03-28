@@ -28,7 +28,7 @@ def get_user_mcdir():
     possible_homes = (
         os.getenv('HOME') + '/.minecraft',
         os.getenv('HOME') + '/.var/app/com.mojang.Minecraft/.minecraft/'
-    ) # TODO: add more possible locations (e.g. snap)
+    )
 
     #remove unexistant paths
     possible_homes = [h for h in possible_homes if os.path.exists(h)]
