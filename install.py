@@ -165,15 +165,9 @@ def main(zipfile, user_mcdir=None, manual=False, open_browser=False):
                     for url, outfile in actual_manual_dls:
                         print("* %s (%s)" % (url, os.path.basename(outfile)))
 
-                    with open("manual_downloads.txt", "w") as f:
-                        for url, _ in actual_manual_dls:
-                            f.write(url + "\n")
-
                     if open_browser:
-                        urls = subprocess.checkout(["cat", "manual_downloads.txt"])
-
                         browser = webbrowser.get()
-                        for url in urls:
+                        for url in actual_manual_dls:
                             browser.open_new(url)
 
                     # TODO save user's configured downloads folder somewhere

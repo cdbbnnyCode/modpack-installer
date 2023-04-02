@@ -66,9 +66,9 @@ pip3 install --user requests
   * Note that deleting the modpack does not automatically delete any mod files, as
     they are stored in a central `.modcache` directory. To clean up unused mods, run
     the `clean.py` script.
-* You can use the `-b <browser-name>` flag in order to automatically open any modpacks
-  that need to be installed manually. Note that you need to replace `<browser-name>`
-  with the name of you browser you whish to use.
+* You can use the `-b` flag in order to automatically open any modpacks
+  that need to be installed manually. This will open them in your default
+  browser using `webbrowser`.
 * Use `python install.py -h` for a complete list of available commands
 
 ### How it Works

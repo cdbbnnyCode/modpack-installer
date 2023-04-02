@@ -18,7 +18,6 @@ node_modules/
 .packs/
 global/
 packs/
-manual_downloads.txt
 
 # Modpack zip files
 *.zip
