@@ -6,9 +6,6 @@
 # will then generate a complete Minecraft install directory with all of the
 # mods and overrides installed.
 
-import forge_install
-import fabric_install
-import mod_download
 import os
 import sys
 import json
@@ -17,7 +14,12 @@ import time
 import random
 import shutil
 import argparse
+import webbrowser
 from distutils.dir_util import copy_tree
+
+import forge_install
+import fabric_install
+import mod_download
 from zipfile import ZipFile
 
 def start_launcher(mc_dir):
@@ -26,7 +28,7 @@ def start_launcher(mc_dir):
 def get_user_mcdir():
     return os.getenv('HOME') + '/.minecraft'
 
-def main(zipfile, user_mcdir=None, manual=False, open_browser=''):
+def main(zipfile, user_mcdir=None, manual=False, open_browser=False):
     if user_mcdir is None:
         user_mcdir = get_user_mcdir()
 
@@ -167,8 +169,12 @@ def main(zipfile, user_mcdir=None, manual=False, open_browser=''):
                         for url, _ in actual_manual_dls:
                             f.write(url + "\n")
 
-                    if open_browser != '':
-                        subprocess.run("{} $(cat manual_downloads.txt)".format(open_browser), shell=True)
+                    if open_browser:
+                        urls = subprocess.checkout(["cat", "manual_downloads.txt"])
+
+                        browser = webbrowser.get()
+                        for url in urls:
+                            browser.open_new(url)
 
                     # TODO save user's configured downloads folder somewhere
                     user_downloads_dir = os.environ['HOME'] + '/Downloads'
@@ -268,7 +274,7 @@ if __name__ == "__main__":
     parser.add_argument('--manual', dest='forge_disable', action='store_true')
     parser.add_argument('--mcdir', dest='mcdir')
     parser.add_argument(
-        '-b', '--open-browser', type=str, dest='open_browser', default='',
+        '-b', '--open-browser', action="store_true", dest='open_browser',
         help='the browser to use to open the manual downloads'
     )
     args = parser.parse_args(sys.argv[1:])
