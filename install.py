@@ -167,7 +167,7 @@ def main(zipfile, user_mcdir=None, manual=False, open_browser=False):
 
                     if open_browser:
                         browser = webbrowser.get()
-                        for url in actual_manual_dls:
+                        for url, _ in actual_manual_dls:
                             browser.open_new(url)
 
                     # TODO save user's configured downloads folder somewhere
