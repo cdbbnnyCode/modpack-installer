@@ -14,7 +14,7 @@ api_url = 'https://api.curseforge.com/v1'
 api_key = '$2a$10$t2BUHi3wKkiMw1YEqItui.XaHDvw4yMLK2peaKGkI9ufv3IsYRlkW'
 
 # temporary rate limit before CF implements a real one
-api_ratelimit = 3 # JSON requests per second
+api_ratelimit = 5 # JSON requests per second
 req_history = [0, 0] # time, request count so far
 
 def get_json(session, url):
@@ -93,6 +93,7 @@ async def download_mods_async(manifest, out_dir):
                     retry_tasks.append(resp[0])
                 elif resp[1] == 'dist-error':
                     manual_dl_url = resp[2]['links']['websiteUrl'] + '/download/' + str(resp[0]['fileID'])
+                    manual_dl_url = manual_dl_url.replace('www.curseforge.com', 'legacy.curseforge.com')
                     manual_downloads.append((manual_dl_url, resp))
                     # add to jars list so that the file gets linked
                     jars.append(resp[3:])

@@ -227,6 +227,7 @@ def main(zipfile, user_mcdir=None, manual=False, open_browser=False, automated=F
                     print("====MANUAL DOWNLOAD REQUIRED====")
                     print("The following mods cannot be downloaded due to the new Project Distribution Toggle.")
                     print("Please download them manually; the files will be retrieved from your downloads directly.")
+                    print("If there is a 404 error opening any of these links, try replacing 'legacy.curseforge.com' with 'www.curseforge.com'")
                     for url, outfile in actual_manual_dls:
                         print("* %s (%s)" % (url, os.path.basename(outfile)))
 
