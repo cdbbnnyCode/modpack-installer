@@ -21,17 +21,82 @@ import forge_install
 import fabric_install
 import mod_download
 from zipfile import ZipFile
+from util import get_user_preference, set_user_preference
 
 def start_launcher(mc_dir):
     subprocess.run(['minecraft-launcher', '--workDir', os.path.abspath(mc_dir)])
 
 def get_user_mcdir():
-    return os.getenv('HOME') + '/.minecraft'
+    # get the possibles minecraft home folder
+    possible_homes = (
+        os.getenv('HOME') + '/.minecraft',
+        os.getenv('HOME') + '/.var/app/com.mojang.Minecraft/.minecraft/'
+    )
 
-def main(zipfile, user_mcdir=None, manual=False, open_browser=False):
+    #remove unexistant paths
+    possible_homes = [h for h in possible_homes if os.path.exists(h)]
+
+    # no minecraft path found, ask the user to insert it
+    if len(possible_homes) == 0:
+        return input("No minecraft installation detected, please instert the .minecraft folder path (ctrl + c to cancel): ")
+
+    # only one possible home has been found, just return it
+    elif len(possible_homes) == 1:
+        return possible_homes[0]
+
+    # check if more than two paths exists, ask for the user which one should be used for install
+    elif len(possible_homes) >= 2:
+        while True:
+            print("Multiple minecraft installations detected:")
+            # print each folder with a number
+            i = 1 # to have more natural numbers, we're starting to 1
+            for home in possible_homes:
+                print(i, "- ", home)
+                i += 1
+
+            #ask the user which one to use
+            home = input("Which minecraft folder should be used: ")
+            
+            # if the user replied with something else than a number print an error and loop back
+            if not home.isdigit():
+                print("Error: the response should be a number!")
+            
+            # if the option doesn't exists, tell the user
+            elif int(home)-1 > len(possible_homes):
+                print("Error: this option doesn't exists!")
+            
+            # everything seems to be ok, returning the associated path
+            else:
+                return possible_homes[int(home)-1]
+            
+
+
+
+def main(zipfile, user_mcdir=None, manual=False, open_browser=False, automated=False):
+
+    # check which minecraft folder to use
     if user_mcdir is None:
-        user_mcdir = get_user_mcdir()
+        # load the user preferences file
+        user_mcdir = get_user_preference("minecraft_dir")
 
+        # if the user didn't specify a minecraft folder, ask for it
+        if user_mcdir is None:
+            user_mcdir = get_user_mcdir()
+
+
+    # check if the user wants to save the path as default if it's different from the one in the preferences
+    if user_mcdir != get_user_preference("minecraft_dir") and not automated:
+        #ask the user if he wants to save the path as default
+        print("Changes detected in the minecraft folder path. \n OLD: %s\n NEW: %s" % (get_user_preference("minecraft_dir"), user_mcdir))
+        update_preferences = input("would you like to save this new path as default? (Y/n) ")
+
+        # if the user wants to save the path as default, save it
+        if update_preferences.lower().startswith("y") or update_preferences == "":
+            set_user_preference("minecraft_dir", user_mcdir)
+            print("Preferences updated! You can change them with the --mcdir option.")
+        else:
+            print("Okay, no updates were made.")
+    
     # Extract pack
     packname = os.path.splitext(zipfile)[0]
     packname = os.path.basename(packname)
@@ -265,11 +330,12 @@ def main(zipfile, user_mcdir=None, manual=False, open_browser=False):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('zipfile')
-    parser.add_argument('--manual', dest='forge_disable', action='store_true')
-    parser.add_argument('--mcdir', dest='mcdir')
+    parser.add_argument('--manual', dest='forge_disable', action='store_true'),
+    parser.add_argument('--mcdir', dest='mcdir', help="Minecraft directory, overrides stored preferences")
+    parser.add_argument('--automated', dest='automated', action='store_true', help="Intended for use by other scripts, limit blocking prompts")
     parser.add_argument(
         '-b', '--open-browser', action="store_true", dest='open_browser',
         help='the browser to use to open the manual downloads'
     )
     args = parser.parse_args(sys.argv[1:])
-    main(args.zipfile, args.mcdir, args.forge_disable, args.open_browser)
+    main(args.zipfile, user_mcdir=args.mcdir, manual=args.forge_disable, automated=args.automated, open_browser=args.open_browser)

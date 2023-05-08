@@ -1,6 +1,8 @@
 # utility functions
 import requests
 import shutil
+import json
+import os
 
 def status_bar(text, progress, bar_width=0.5, show_percent=True, borders='[]', progress_ch='#', space_ch=' '):
     ansi_el = '\x1b[K\r' # escape code to clear the rest of the line plus carriage return
@@ -57,3 +59,33 @@ def rename_profile(launcher_profiles, orig_name, new_name):
     del launcher_profiles['profiles'][orig_name]
     launcher_profiles['profiles'][new_name] = orig_profile
     launcher_profiles['profiles'][new_name]['name'] = new_name
+
+def __user_preferences_file():
+    # create the user preferences file if it doesn't exist
+    if not os.path.isfile('user-preferences.json'):
+        with open('user-preferences.json', 'w') as f:
+            json.dump({}, f)
+
+def get_user_preference(key):
+    __user_preferences_file()
+
+    # load the user preferences file
+    with open('user-preferences.json', 'r') as f:
+        prefs = json.load(f)
+    
+    # return the value if it exists, otherwise return None
+    if key not in prefs:
+        return None
+    return prefs[key]
+
+def set_user_preference(key, value):
+    __user_preferences_file()
+
+    # load the user preferences file
+    with open('user-preferences.json', 'r') as f:
+        prefs = json.load(f)
+
+    # set the value and save the file
+    prefs[key] = value
+    with open('user-preferences.json', 'w') as f:
+        json.dump(prefs, f, indent=4)
