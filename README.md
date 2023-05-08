@@ -1,5 +1,5 @@
 ## Modpack Installer  
-###### V2.3.2
+###### V2.3.3
 
 This command-line tool allows easy installation of CurseForge modpacks on Linux
 systems. It installs each modpack in a semi-isolated environment, which prevents
@@ -125,6 +125,23 @@ This project is not endorsed by or affiliated with CurseForge, Overwolf, or Micr
 All product and company names are the registered trademarks of their original owners.
 
 ### Changelog
+#### v2.3.3 - 2023-05-08
+* New features from community pull requests:
+  * New `--open-browser` option will automatically open all of the manual download links in the
+    browser (not recommended if there are many mods that need to be downloaded manually, as all
+    of the links will be opened simultaneously)
+    ([#28](https://github.com/cdbbnnyCode/modpack-installer/pull/28)).
+  * Support for changing the user's `.minecraft` directory
+    ([#15](https://github.com/cdbbnnyCode/modpack-installer/pull/15)). Automatically checks in the
+    default location (`$HOME/.minecraft`) as well as the flatpak install location. Other locations
+    can be chosen with the `--mcdir` option or by editing the `user_preferences.json` file.
+* Fixes syntax error in v2.3.2
+  * Original fix was force-pushed over the same commit but did not apply to the existing tag (my bad)
+* Manual download URLs now point to `legacy.curseforge.com` instead of `www.curseforge.com`
+  * It seems like the data is being moved from the legacy site to the new site, and some files only
+    exist on the new site and not the old one. If any manual download links return a 404 error,
+    try changing the URL to start with `www.curseforge.com`.
+
 #### v2.3.2 - 2023-02-24
 * Fix crash in the datapack detection logic when the modpack data has already been successfully
   installed.
