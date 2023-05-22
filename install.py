@@ -15,6 +15,7 @@ import random
 import shutil
 import argparse
 import webbrowser
+import pathlib
 from distutils.dir_util import copy_tree
 
 import forge_install
@@ -68,12 +69,21 @@ def get_user_mcdir():
             # everything seems to be ok, returning the associated path
             else:
                 return possible_homes[int(home)-1]
-            
 
+# try to create a directory and all of its parent directories if they do not exist (like mkdir -p)
+def mkdirp(path):
+    if type(path) != pathlib.Path:
+        path = pathlib.Path(path) # convert to pathlib path if a string is provided
+    try:
+        path.mkdir(parents=True, exist_ok=True)
+    except TypeError: # exist_ok not defined
+        try:
+            path.mkdir(parents=True)
+        except FileExistsError:
+            if not path.is_dir():
+                raise # keep exception if a non-directory file exists here
 
-
-def main(zipfile, user_mcdir=None, manual=False, open_browser=False, automated=False):
-
+def main(zipfile, user_mcdir=None, manual=False, open_browser=False, automated=False, sandbox=None):
     # check which minecraft folder to use
     if user_mcdir is None:
         # load the user preferences file
@@ -83,11 +93,11 @@ def main(zipfile, user_mcdir=None, manual=False, open_browser=False, automated=F
         if user_mcdir is None:
             user_mcdir = get_user_mcdir()
 
-
     # check if the user wants to save the path as default if it's different from the one in the preferences
-    if user_mcdir != get_user_preference("minecraft_dir") and not automated:
+    pref_mcdir = get_user_preference("minecraft_dir")
+    if user_mcdir != pref_mcdir and not automated:
         #ask the user if he wants to save the path as default
-        print("Changes detected in the minecraft folder path. \n OLD: %s\n NEW: %s" % (get_user_preference("minecraft_dir"), user_mcdir))
+        print("Changes detected in the minecraft folder path. \n OLD: %s\n NEW: %s" % (pref_mcdir, user_mcdir))
         update_preferences = input("would you like to save this new path as default? (Y/n) ")
 
         # if the user wants to save the path as default, save it
@@ -96,6 +106,36 @@ def main(zipfile, user_mcdir=None, manual=False, open_browser=False, automated=F
             print("Preferences updated! You can change them with the --mcdir option.")
         else:
             print("Okay, no updates were made.")
+
+    # check if the minecraft dir should be moved into a sandbox
+    sandbox_root = str(pathlib.Path(user_mcdir).parent) + '/modpack'
+    sandbox_pref = get_user_preference("sandbox")
+    should_sandbox = sandbox_pref
+    # if the preference was not set, check it
+    # - also check if the mcdir has changed
+    if should_sandbox is None or user_mcdir != pref_mcdir:
+        should_sandbox = ".var/app" in user_mcdir # flatpak paths look like this
+    if sandbox is None:
+        sandbox = should_sandbox
+        # if this is new
+        if sandbox and not sandbox_pref and not automated:
+            # check if the user is ok with applying sandbox mode
+            print("This minecraft directory seems to be installed from Flatpak. Since Flatpak apps")
+            print("can't access the filesystem, 'sandbox mode' has been enabled, which will place ")
+            print("modpacks alongside the main '.minecraft' installation so that they exist where ")
+            print("the app can access them.")
+            sandbox_ok = input("Is this OK? [Y/n]")
+            if sandbox_ok.lower()[:1] not in ['y', '']:
+                sandbox = False
+    if sandbox != sandbox_pref:
+        # update preference
+        if sandbox:
+            print("Enabling sandboxing - this can be changed with --no-sandbox if it breaks things")
+            print("* Modpack data will be stored at %s" % sandbox_root)
+        set_user_preference("sandbox", sandbox)
+
+    install_root = sandbox_root if sandbox else '.'
+    mkdirp(install_root)
     
     # Extract pack
     packname = os.path.splitext(zipfile)[0]
@@ -104,38 +144,32 @@ def main(zipfile, user_mcdir=None, manual=False, open_browser=False, automated=F
     if os.path.isdir(packdata_dir):
         print("[pack data already unzipped]")
     else:
-        if not os.path.isdir('.packs/'):
-            os.mkdir('.packs')
+        mkdirp('.packs/')
         print("Extracting %s" % zipfile)
-        with ZipFile(zipfile, 'r') as zip:
-            zip.extractall(packdata_dir)
+        with ZipFile(zipfile, 'r') as zf:
+            zf.extractall(packdata_dir)
 
     # Generate minecraft environment
-    mc_dir = 'packs/' + packname + '/.minecraft'
+    mc_dir = install_root + '/packs/' + packname + '/.minecraft'
     if os.path.isdir(mc_dir):
         print("[minecraft dir already created]")
     else:
         print("Creating .minecraft directory")
-        if not os.path.isdir('packs/'):
-            os.mkdir('packs/')
-        if not os.path.isdir('packs/' + packname):
-            os.mkdir('packs/' + packname)
-        os.mkdir(mc_dir)
+        mkdirp(mc_dir)
 
         print("Creating symlinks")
-        if not os.path.isdir('global/'):
-            os.mkdir('global')
-            os.mkdir('global/libraries')
-            os.mkdir('global/resourcepacks')
-            os.mkdir('global/saves')
-            os.mkdir('global/shaderpacks')
-            os.mkdir('global/assets')
+        global_dir = install_root + '/global'
+        mkdirp(global_dir + '/libraries')
+        mkdirp(global_dir + '/resourcepacks')
+        mkdirp(global_dir + '/saves')
+        mkdirp(global_dir + '/shaderpacks')
+        mkdirp(global_dir + '/assets')
 
-        os.symlink(os.path.abspath('global/libraries'), mc_dir + '/libraries', True)
-        os.symlink(os.path.abspath('global/resourcepacks'), mc_dir + '/resourcepacks', True)
-        os.symlink(os.path.abspath('global/saves'), mc_dir + '/saves', True)
-        os.symlink(os.path.abspath('global/shaderpacks'), mc_dir + '/shaderpacks', True)
-        os.symlink(os.path.abspath('global/assets'), mc_dir + '/assets', True)
+        os.symlink(os.path.abspath(global_dir + '/libraries'), mc_dir + '/libraries', True)
+        os.symlink(os.path.abspath(global_dir + '/resourcepacks'), mc_dir + '/resourcepacks', True)
+        os.symlink(os.path.abspath(global_dir + '/saves'), mc_dir + '/saves', True)
+        os.symlink(os.path.abspath(global_dir + '/shaderpacks'), mc_dir + '/shaderpacks', True)
+        os.symlink(os.path.abspath(global_dir + '/assets'), mc_dir + '/assets', True)
 
     # Install Forge
     print("Installing modloader")
@@ -170,7 +204,7 @@ def main(zipfile, user_mcdir=None, manual=False, open_browser=False, automated=F
     modloader, mlver = manifest['minecraft']['modLoaders'][0]["id"].split('-')
     mcver = manifest['minecraft']['version']
 
-    if not modloader in modloaders:
+    if modloader not in modloaders:
         print("This modloader (%s) is not supported." % modloader)
         print("Currently, the only supported modloaders are %s" % modloaders)
         return
@@ -204,18 +238,12 @@ def main(zipfile, user_mcdir=None, manual=False, open_browser=False, automated=F
 
     # Download mods
     if not os.path.exists(mc_dir + '/.mod_success'):
-        if not os.path.isdir(mc_dir + '/mods'):
-            os.mkdir(mc_dir + '/mods')
+        modcache_dir = install_root + '/.modcache'
+        mkdirp(mc_dir + '/mods')
+        mkdirp(modcache_dir)
         print("Downloading mods")
-        if not os.path.isdir('.modcache'):
-            os.mkdir('.modcache')
 
-        # if not os.path.isdir('node_modules'):
-        #     print("Installing NodeJS dependencies")
-        #     subprocess.run(['npm', 'install'])
-        # subprocess.run(['node', 'mod_download.js', packdata_dir + '/manifest.json', '.modcache', packdata_dir + '/mods.json'])
-
-        mods, manual_downloads = mod_download.main(packdata_dir + '/manifest.json', '.modcache')
+        mods, manual_downloads = mod_download.main(packdata_dir + '/manifest.json', modcache_dir)
         if len(manual_downloads) > 0:
             while True:
                 actual_manual_dls = [] # which ones aren't already downloaded
@@ -296,7 +324,7 @@ def main(zipfile, user_mcdir=None, manual=False, open_browser=False, automated=F
                             shutil.copyfile(f, mc_dir + '/resources/' + dir)
                 shutil.rmtree(texpack_dir)
             else:
-                print("Unknown file type %s" % type)
+                print("Unknown file type %s" % ftype)
                 sys.exit(1)
 
     else: # if mods already downloaded
@@ -332,11 +360,33 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('zipfile')
     parser.add_argument('--manual', dest='forge_disable', action='store_true'),
-    parser.add_argument('--mcdir', dest='mcdir', help="Minecraft directory, overrides stored preferences")
-    parser.add_argument('--automated', dest='automated', action='store_true', help="Intended for use by other scripts, limit blocking prompts")
+    parser.add_argument(
+        '--mcdir', dest='mcdir',
+        help="Minecraft directory, overrides stored preferences"
+    )
+    parser.add_argument(
+        '--automated', dest='automated', action='store_true', 
+        help="Intended for use by other scripts, limit blocking prompts"
+    )
     parser.add_argument(
         '-b', '--open-browser', action="store_true", dest='open_browser',
         help='the browser to use to open the manual downloads'
     )
+    parser.add_argument(
+        '-s', '--sandbox', action='store_true', dest='sandbox', default=None,
+        help="Force 'sandbox' mode (for Flatpak etc.), places files alongside .minecraft dir so that they are"
+            +"accessible from inside a sandboxed environment"
+    )
+    parser.add_argument(
+        '--no-sandbox', action='store_false', dest='sandbox', default=None,
+        help="Force-disable 'sandbox' mode"
+    )
     args = parser.parse_args(sys.argv[1:])
-    main(args.zipfile, user_mcdir=args.mcdir, manual=args.forge_disable, automated=args.automated, open_browser=args.open_browser)
+    main(
+        args.zipfile,
+        user_mcdir=args.mcdir,
+        manual=args.forge_disable,
+        automated=args.automated,
+        open_browser=args.open_browser,
+        sandbox=args.sandbox,
+    )
