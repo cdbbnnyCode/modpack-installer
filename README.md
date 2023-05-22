@@ -1,5 +1,5 @@
 ## Modpack Installer  
-###### V2.3.3
+###### V2.3.4
 
 This command-line tool allows easy installation of CurseForge modpacks on Linux
 systems. It installs each modpack in a semi-isolated environment, which prevents
@@ -32,10 +32,14 @@ to upgrade all of your existing modpacks.
 * Simple command-line interface
 * Supports Forge and Fabric modpacks
 * Caches and re-uses mods across packs to save on bandwidth and drive usage
+* Modpacks can be launched directly from the official launcher; no third-party authentication required
+* Supports installing to the Minecraft app from Flatpak
+  * Uses 'sandbox mode' to ensure that the mods are placed inside the Flatpak sandbox environment
+    where the game can still access them
 
 ### Requirements  
 This program requires the Minecraft launcher, Python 3, and a JDK (8 or
-higher). The only dependency library is not automatically installed is Requests,
+higher). The only dependency library that is not automatically installed is Requests,
 which can be installed with pip (or your favorite method of installing Python
 libraries):  
 ```
@@ -125,6 +129,20 @@ This project is not endorsed by or affiliated with CurseForge, Overwolf, or Micr
 All product and company names are the registered trademarks of their original owners.
 
 ### Changelog
+#### v2.3.4 - 2023-05-21
+* Fixes a bug preventing the game from accessing mod files when launched via the Flatpak app
+  ([#31](https://github.com/cdbbnnyCode/modpack-installer/issues/31))
+  * Flatpak has a sandbox that blocks access to the filesystem outside `~/.var/app/<appname>/`
+    unless explicitly specified otherwise. By default, the modpack installer creates a
+    complete game directory and stores mods relative to itself (in `packs/` and `.modcache`,
+    respectively).
+  * This update adds a 'sandbox' mode that automatically enables if Flatpak is being used and
+    moves modpack files closer to the main `.minecraft` location so that they exist within the
+    Flatpak sandbox.
+* Uses `shutil` instead of the deprecated `distutils` to recursively copy directories
+  * ...except that `shutil.copytree` in Python versions before 3.8 does not support copying over
+    existing directories, so those older versions will still use `distutils`.
+
 #### v2.3.3 - 2023-05-08
 * New features from community pull requests:
   * New `--open-browser` option will automatically open all of the manual download links in the
@@ -144,7 +162,7 @@ All product and company names are the registered trademarks of their original ow
 
 #### v2.3.2 - 2023-02-24
 * Fix crash in the datapack detection logic when the modpack data has already been successfully
-  installed.
+  installed. ([#26](https://github.com/cdbbnnyCode/modpack-installer/issues/26))
 
 #### v2.3.1 - 2023-02-07
 * Detect included datapacks (i.e. for Repurposed Structures) and install them to
