@@ -16,13 +16,21 @@ import shutil
 import argparse
 import webbrowser
 import pathlib
-from distutils.dir_util import copy_tree
 
 import forge_install
 import fabric_install
 import mod_download
 from zipfile import ZipFile
 from util import get_user_preference, set_user_preference
+
+# shutil.copytree doesn't accept dirs_exist_ok until 3.8 which is fairly modern (I think some LTS distros still use 3.6)
+# fall back to distutils copy_tree (the old solution) if needed
+if sys.version_info.minor >= 8:
+    import shutil
+    def copy_tree(src, dest):
+        shutil.copytree(src, dest, dirs_exist_ok=True)
+else:
+    from distutils import copy_tree
 
 def start_launcher(mc_dir):
     subprocess.run(['minecraft-launcher', '--workDir', os.path.abspath(mc_dir)])
@@ -316,12 +324,12 @@ def main(zipfile, user_mcdir=None, manual=False, open_browser=False, automated=F
                         os.mkdir(mc_dir + '/datapacks')
                     os.symlink(os.path.abspath(jar), mc_dir + '/datapacks/' + os.path.basename(jar))
                 else:
-                    for dir in os.listdir(texpack_dir + '/assets'):
-                        f = texpack_dir + '/assets/' + dir
+                    for subdir in os.listdir(texpack_dir + '/assets'):
+                        f = texpack_dir + '/assets/' + subdir
                         if os.path.isdir(f):
-                            copy_tree(f, mc_dir + '/resources/' + dir)
+                            copy_tree(f, mc_dir + '/resources/' + subdir)
                         else:
-                            shutil.copyfile(f, mc_dir + '/resources/' + dir)
+                            shutil.copyfile(f, mc_dir + '/resources/' + subdir)
                 shutil.rmtree(texpack_dir)
             else:
                 print("Unknown file type %s" % ftype)
@@ -337,12 +345,12 @@ def main(zipfile, user_mcdir=None, manual=False, open_browser=False, automated=F
 
     # Copy overrides
     print("Copying overrides")
-    for dir in os.listdir(packdata_dir + '/overrides'):
-        print(dir + "...")
-        if os.path.isdir(packdata_dir + '/overrides/' + dir):
-            copy_tree(packdata_dir + '/overrides/' + dir, mc_dir + '/' + dir)
+    for subdir in os.listdir(packdata_dir + '/overrides'):
+        print(subdir + "...")
+        if os.path.isdir(packdata_dir + '/overrides/' + subdir):
+            copy_tree(packdata_dir + '/overrides/' + subdir, mc_dir + '/' + subdir)
         else:
-            shutil.copyfile(packdata_dir + '/overrides/' + dir, mc_dir + '/' + dir)
+            shutil.copyfile(packdata_dir + '/overrides/' + subdir, mc_dir + '/' + subdir)
     print("Done!")
     print()
     print()
