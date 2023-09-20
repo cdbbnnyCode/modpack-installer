@@ -20,7 +20,7 @@ def get_forge_url(mcver, mlver):
             return ""
 
     with open(outpath, 'r') as f:
-        match = re.search("href=(?:.*url=)?(.*%s.*\.jar)" % mlver, f.read())
+        match = re.search("href=\"(.*%s.*\.jar)\"" % mlver, f.read())
         if match:
             url = match.group(1)
         else:
@@ -29,22 +29,26 @@ def get_forge_url(mcver, mlver):
 
     return url
 
+def guess_forge_url(mcver, mlver):
+    forge_fullver = mcver + '-' + mlver
+    return 'https://files.minecraftforge.net/maven/net/minecraftforge/forge/%s/forge-%s-installer.jar' % (forge_fullver, forge_fullver)
+
 def main(manifest, mcver, mlver, packname, mc_dir, manual):
+    url_providers = [guess_forge_url, get_forge_url]
 
-    url = get_forge_url(mcver, mlver)
+    outpath = '/tmp/forge-%s-installer.jar' % (mcver + '-' + mlver)
 
-    if not url:
-        print("Guessing Forge download URL")
-        forge_fullver = mcver + '-' + mlver
-        url = 'https://files.minecraftforge.net/maven/net/minecraftforge/forge/%s/forge-%s-installer.jar' % (forge_fullver, forge_fullver)
+    for provider in url_providers:
+        if os.path.exists(outpath):
+            break
+        url = provider(mcver, mlver)
 
-    outpath = '/tmp/%s' % url.split('/')[-1]
-
-    if not os.path.exists(outpath):
         resp = download(url, outpath, True)
         if resp != 200:
             print("Got %d error trying to download Forge" % resp)
-            sys.exit(2)
+    else:
+        print("Failed to download the Forge installer.")
+        sys.exit(2)
 
     # Run the Forge auto-install hack
     if manual:

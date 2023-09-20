@@ -44,9 +44,13 @@ def download(url, dest, progress=False, session=None):
                     status_bar(url, n / size)
             else:
                 f.write(r.content)
-    except requests.RequestException:
+    except requests.RequestException as e:
+        print("Download failed with an internal error:")
+        print(repr(e))
         return -1
-    except OSError:
+    except OSError as e:
+        print("Download failed with an OS error:")
+        print(repr(e))
         return -2
 
     if progress:
