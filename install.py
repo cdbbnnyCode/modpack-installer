@@ -32,6 +32,16 @@ if sys.version_info.minor >= 8:
 else:
     from distutils import copy_tree
 
+# Files/directories to always copy when updating a modpack
+# otherwise, only files and directories that don't exist in the new install will be copied
+update_always_copy = [
+    'options.txt',
+    'optionsof.txt', # optifine options (may or may not exist)
+    'servers.dat',
+    'servers.dat_old',
+    'screenshots'
+]
+
 def start_launcher(mc_dir):
     subprocess.run(['minecraft-launcher', '--workDir', os.path.abspath(mc_dir)])
 
@@ -91,7 +101,9 @@ def mkdirp(path):
             if not path.is_dir():
                 raise # keep exception if a non-directory file exists here
 
-def main(zipfile, user_mcdir=None, manual=False, open_browser=False, automated=False, sandbox=None):
+def main(zipfile,
+         user_mcdir=None, manual=False, open_browser=False,
+         automated=False, sandbox=None, update_from=None):
     # check which minecraft folder to use
     if user_mcdir is None:
         # load the user preferences file
@@ -333,7 +345,6 @@ def main(zipfile, user_mcdir=None, manual=False, open_browser=False, automated=F
                 shutil.rmtree(texpack_dir)
             else:
                 print("Unknown file type %s" % ftype)
-                sys.exit(1)
 
     else: # if mods already downloaded
         # assume there might be datapacks if a datapacks directory exists
@@ -351,6 +362,50 @@ def main(zipfile, user_mcdir=None, manual=False, open_browser=False, automated=F
             copy_tree(packdata_dir + '/overrides/' + subdir, mc_dir + '/' + subdir)
         else:
             shutil.copyfile(packdata_dir + '/overrides/' + subdir, mc_dir + '/' + subdir)
+
+    # Copy files from old version if updating
+    if update_from is not None:
+        print("Updating from %s" % update_from)
+        update_mcdir = update_from + '/.minecraft'
+        if not os.path.isdir(update_mcdir):
+            print("%s is not a valid modpack dir (.minecraft subdir not found)" % update_from)
+            return
+
+        # make sure 
+        abs_update_dir = os.path.abspath(update_from)
+        abs_pack_dir = os.path.abspath(install_root + '/packs')
+        if pathlib.Path(abs_pack_dir) not in pathlib.Path(abs_update_dir).parents:
+            print("%s is not a valid modpack dir (not inside %s)" % (update_from, abs_pack_dir))
+            return
+
+        to_copy = set()
+        for path in update_always_copy:
+            oldpath = update_mcdir + '/' + path
+            if os.path.exists(oldpath):
+                to_copy.add(path)
+        for path in os.listdir(update_from):
+            oldpath = update_mcdir + '/' + path
+            newpath = mc_dir + '/' + path
+            if os.path.exists(oldpath) and not os.path.exists(newpath):
+                to_copy.add(path)
+
+        for path in to_copy:
+            print(path)
+            oldpath = update_mcdir + '/' + path
+            newpath = mc_dir + '/' + path
+            
+            if os.path.isdir(oldpath):
+                copy_tree(oldpath, newpath)
+            else:
+                shutil.copyfile(oldpath, newpath)
+        
+        print("Removing old version")
+        # remove directory
+        shutil.rmtree(update_from)
+        # run clean script
+        import clean
+        clean.main(user_mcdir, install_root)
+
     print("Done!")
     print()
     print()
@@ -389,6 +444,10 @@ if __name__ == "__main__":
         '--no-sandbox', action='store_false', dest='sandbox', default=None,
         help="Force-disable 'sandbox' mode"
     )
+    parser.add_argument(
+        '--update', dest='old_modpack', default=None,
+        help="Install modpack over existing version (copies settings from old pack directory before deleting it)"
+    )
     args = parser.parse_args(sys.argv[1:])
     main(
         args.zipfile,
@@ -397,4 +456,5 @@ if __name__ == "__main__":
         automated=args.automated,
         open_browser=args.open_browser,
         sandbox=args.sandbox,
+        update_from=args.old_modpack
     )
