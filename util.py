@@ -30,10 +30,12 @@ def download(url, dest, progress=False, session=None):
             r = session.get(url, stream=True)
         else:
             r = requests.get(url, stream=True)
-        size = int(r.headers['Content-Length'])
         
         if r.status_code != 200:
             return r.status_code
+        
+        # size is only for the progress bar
+        size = int(r.headers.get('Content-Length', 1))
 
         with open(dest, 'wb') as f:
             if progress:
@@ -41,7 +43,7 @@ def download(url, dest, progress=False, session=None):
                 for chunk in r.iter_content(1048576):
                     f.write(chunk)
                     n += len(chunk)
-                    status_bar(url, n / size)
+                    status_bar(url, min(n / size, 1))
             else:
                 f.write(r.content)
     except requests.RequestException as e:
