@@ -30,7 +30,7 @@ if sys.version_info.minor >= 8:
     def copy_tree(src, dest):
         shutil.copytree(src, dest, dirs_exist_ok=True)
 else:
-    from distutils import copy_tree
+    from distutils.dir_util import copy_tree
 
 # Files/directories to always copy when updating a modpack
 # otherwise, only files and directories that don't exist in the new install will be copied
