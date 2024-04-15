@@ -14,7 +14,7 @@ api_url = 'https://api.curseforge.com/v1'
 api_key = '$2a$10$t2BUHi3wKkiMw1YEqItui.XaHDvw4yMLK2peaKGkI9ufv3IsYRlkW'
 
 # temporary rate limit before CF implements a real one
-api_ratelimit = 5 # JSON requests per second
+api_ratelimit = 20 # JSON requests per second
 req_history = [0, 0] # time, request count so far
 
 def get_json(session, url):
@@ -31,6 +31,7 @@ def get_json(session, url):
             req_history[1] = 0
             break
         s_remaining = max(0, req_history[0] + 1 - time.perf_counter())
+        print("rate limiting (%.3fs)" % s_remaining)
         time.sleep(s_remaining)
 
     return json.loads(r.text)
