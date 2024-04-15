@@ -1,5 +1,5 @@
 ## Modpack Installer  
-###### V2.3.4
+###### V2.3.5
 
 This command-line tool allows easy installation of CurseForge modpacks on Linux
 systems. It installs each modpack in a semi-isolated environment, which prevents
@@ -129,6 +129,21 @@ This project is not endorsed by or affiliated with CurseForge, Overwolf, or Micr
 All product and company names are the registered trademarks of their original owners.
 
 ### Changelog
+#### v2.3.5 - 2024-04-15
+* New feature - modpacks can be updated in-place using the `--update` option
+  * This installs the new version and then uninstalls the previous version, but it copies any
+    files (screenshots, options, etc.) from the previous version automatically.
+* Several bug fixes 
+  * The manual download tool looks for files with spaces
+    ([#42](https://github.com/cdbbnnyCode/modpack-installer/issues/42)),
+    ([#43](https://github.com/cdbbnnyCode/modpack-installer/issues/43))
+  * Fix Forge download URL detection
+    ([#40](https://github.com/cdbbnnyCode/modpack-installer/issues/40)),
+    ([#41](https://github.com/cdbbnnyCode/modpack-installer/issues/41))
+    * The previous implementation was matching incorrect URLs and having issues with 404 responses not having
+      any Content-Length field.
+  * Fix fallback distutils import for old Python versions (below 3.8)
+
 #### v2.3.4 - 2023-05-21
 * Fixes a bug preventing the game from accessing mod files when launched via the Flatpak app
   ([#31](https://github.com/cdbbnnyCode/modpack-installer/issues/31))
