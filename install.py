@@ -300,9 +300,14 @@ def main(zipfile,
                     print("Finding files in %s..." % user_downloads_dir)
                     
                     for url, outfile in actual_manual_dls:
-                        fname = os.path.basename(outfile).replace(' ', '+')
+                        fname = os.path.basename(outfile)
+                        fname_plus = fname.replace(' ', '+')
                         dl_path = user_downloads_dir + '/' + fname
-                        if os.path.exists(dl_path):
+                        dl_path_plus = user_downloads_dir + '/' + fname_plus
+                        if os.path.exists(dl_path_plus):
+                            print(dl_path_plus)
+                            shutil.move(dl_path_plus, outfile)
+                        elif os.path.exists(dl_path):
                             print(dl_path)
                             shutil.move(dl_path, outfile)
                 else:
